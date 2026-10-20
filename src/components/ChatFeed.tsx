@@ -9,7 +9,8 @@ import {
   Sparkles,
   User,
   Bot,
-  UserCheck
+  UserCheck,
+  ChevronRight
 } from 'lucide-react';
 import type { ChatMessage, LeadContact, SenderRole } from '../types';
 import { WhatsAppIcon } from './WhatsAppIcon';
@@ -18,7 +19,7 @@ import { quickReplies } from '../mockData';
 interface ChatFeedProps {
   contact: LeadContact;
   messages: ChatMessage[];
-  onSendMessage: (msg: { text: string; role: SenderRole }) => void;
+  onSendMessage: (msg: { text: string; role: SenderRole; options?: string[] }) => void;
   onResetMessages: () => void;
   onMarkStatus: (status: 'resolved' | 'waiting') => void;
 }
@@ -53,46 +54,81 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
     const text = textToSend || inputText;
     if (!text.trim()) return;
 
+    // When an option is clicked, it is sent as the client user
+    const roleToSend: SenderRole = textToSend ? 'user' : activeRole;
+
     onSendMessage({
       text: text.trim(),
-      role: activeRole
+      role: roleToSend
     });
 
     if (!textToSend) {
       setInputText('');
     }
 
-    // If activeRole is user and autoBotReply is enabled, simulate SalesBot response
-    if (activeRole === 'user' && autoBotReply) {
+    // If role is user and autoBotReply is enabled, simulate SalesBot response
+    if (roleToSend === 'user' && autoBotReply) {
       setIsBotTyping(true);
       setTimeout(() => {
         setIsBotTyping(false);
         generateBotResponse(text.trim());
-      }, 1200);
+      }, 1000);
     }
   };
 
   const generateBotResponse = (userQuery: string) => {
     const lower = userQuery.toLowerCase();
     let reply = '';
+    let nextOptions: string[] | undefined = undefined;
 
-    if (lower.includes('cita') || lower.includes('primera')) {
-      reply = `¡Excelente! Para agendar tu primera cita con Healthec:\n\n📅 Disponibilidad para esta semana:\n- Jueves 26 a las 10:00 AM\n- Viernes 27 a las 4:30 PM\n\nPor favor indícanos qué horario prefieres o escribe "Otro horario".`;
-    } else if (lower.includes('salinas') || lower.includes('edgar') || lower.includes('nombre')) {
-      reply = `¡Mucho gusto, ${userQuery}! Hemos registrado tus datos en el sistema Healthec.\n\n¿Deseas confirmar la atención con el Dr. Especialista en la sede Central?`;
+    if (lower.includes('cita') || lower.includes('agendar')) {
+      reply = `¡Excelente! Para agendar tu cita con Healthec, por favor selecciona la modalidad de atención que prefieres:`;
+      nextOptions = [
+        'Atención Presencial',
+        'Consulta Online / Telemedicina',
+        'Regresar al menú anterior'
+      ];
+    } else if (lower.includes('precios') || lower.includes('costo')) {
+      reply = `Nuestros precios actuales de consulta son:\n\n• Consulta General: $450 MXN\n• Consulta Especialidad: $850 MXN\n• Paquete de Seguimiento: $1,200 MXN\n\n¿Deseas agendar tu cita ahora?`;
+      nextOptions = [
+        'Agendar una cita',
+        'Hablar con un asesor',
+        'Regresar al menú anterior'
+      ];
+    } else if (lower.includes('red') || lower.includes('formar parte')) {
+      reply = `¡Nos complace tu interés en formar parte de la red médica Healthec! 🩺\n\nPara iniciar tu proceso de afiliación, por favor compártenos tu especialidad médica y cédula profesional.`;
+      nextOptions = [
+        'Especialista / Médico General',
+        'Clínica / Centro de Salud',
+        'Regresar al menú anterior'
+      ];
+    } else if (lower.includes('ubicacion') || lower.includes('ubicaciones') || lower.includes('donde')) {
+      reply = `Contamos con las siguientes ubicaciones para tu atención:\n\n📍 Sede Central: Insurgentes Sur 1450, Col. Actipan, CDMX\n📍 Sede Norte: Plaza Satélite, Torre Médica Piso 4\n\nHorario: Lunes a Sábado de 8:00 AM a 8:00 PM`;
+      nextOptions = [
+        'Agendar en Sede Central',
+        'Agendar en Sede Norte',
+        'Regresar al menú anterior'
+      ];
     } else if (lower.includes('presencial')) {
-      reply = `Perfecto. Modalidad Presencial seleccionada en Sede Central.\n\nRecuerda presentarte 10 minutos antes con tu identificación oficial.`;
-    } else if (lower.includes('confirmar')) {
-      reply = `¡Cita confirmada con éxito! 🎉\n\nTe hemos enviado los detalles y recordatorio a tu WhatsApp. ¡Gracias por confiar en Healthec!`;
-    } else if (lower.includes('regresar')) {
-      reply = `Regresando al menú principal:\n1. Agendar cita\n2. Consultar costos\n3. Ubicaciones\n4. Hablar con un asesor`;
+      reply = `Perfecto. Modalidad Presencial seleccionada en Sede Central.\n\nPara continuar con el registro, por favor ingresa tu nombre completo:`;
+    } else if (lower.includes('online') || lower.includes('telemedicina')) {
+      reply = `Excelente. Modalidad Consulta Online seleccionada.\n\nTe enviaremos el enlace de la videollamada a tu WhatsApp. Por favor ingresa tu nombre completo:`;
+    } else if (lower.includes('regresar') || lower.includes('menú')) {
+      reply = `Hola 👋\n\nSoy el asistente virtual de Healthec.\n\n¿Sobre qué deseas información?`;
+      nextOptions = [
+        'Agendar una cita',
+        'Consultar precios',
+        'Formar parte de la red Healthec',
+        'Consultar ubicaciones'
+      ];
     } else {
-      reply = `Entendido. He recibido tu mensaje: "${userQuery}".\n\nUn especialista de Healthec revisará tu solicitud a la brevedad.`;
+      reply = `Entendido. He recibido tu mensaje: "${userQuery}".\n\nUn asesor de Healthec continuará la atención en breve.`;
     }
 
     onSendMessage({
       text: reply,
-      role: 'bot'
+      role: 'bot',
+      ...(nextOptions ? { options: nextOptions } : {})
     });
   };
 
@@ -233,6 +269,26 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
                   <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
                     {msg.content}
                   </div>
+
+                  {/* Selectable Interactive Options */}
+                  {msg.options && msg.options.length > 0 && (
+                    <div className="bot-options-container">
+                      <div className="bot-options-title">
+                        <span>Opciones disponibles:</span>
+                      </div>
+                      {msg.options.map((opt, i) => (
+                        <button
+                          key={i}
+                          className="bot-option-btn"
+                          onClick={() => handleSend(opt)}
+                          title={`Seleccionar y responder: "${opt}"`}
+                        >
+                          <span>{opt}</span>
+                          <ChevronRight size={14} className="bot-option-icon" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Robot avatar with WhatsApp badge */}
                   <img 

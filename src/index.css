@@ -834,6 +834,77 @@ body, html, #root {
   border: 1.5px solid var(--bg-chat);
 }
 
+/* Selectable Interactive Options inside Bot Message */
+.bot-options-container {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.bot-options-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #a7d3f5;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 2px;
+}
+
+.bot-option-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  user-select: none;
+}
+
+.bot-option-btn:hover {
+  background: rgba(255, 255, 255, 0.24);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateX(3px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.bot-option-btn:active {
+  transform: scale(0.98);
+}
+
+.bot-option-btn.selected {
+  background: #10b981;
+  border-color: #059669;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.bot-option-icon {
+  opacity: 0.65;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.bot-option-btn:hover .bot-option-icon {
+  opacity: 1;
+  transform: translateX(3px);
+}
+
 /* Action Buttons Under Message (Marque resuelto, Poner en espera, Conversación Nº) */
 .message-actions-bar {
   display: flex;

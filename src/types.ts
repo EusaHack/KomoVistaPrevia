@@ -10,6 +10,8 @@ export interface ChatMessage {
   status?: 'sent' | 'delivered' | 'read';
   channel?: 'whatsapp' | 'web';
   isHeaderSnippet?: boolean;
+  options?: string[];
+  selectedOption?: string;
 }
 
 export interface LeadContact {

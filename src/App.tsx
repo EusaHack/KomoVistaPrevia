@@ -22,14 +22,22 @@ export function App() {
     return `${day}.${month}.${year} ${hours}:${minutes}`;
   };
 
-  const handleSendMessage = ({ text, role }: { text: string; role: SenderRole }) => {
+  const handleSendMessage = ({ 
+    text, 
+    role, 
+    options 
+  }: { 
+    text: string; 
+    role: SenderRole; 
+    options?: string[]; 
+  }) => {
     const timestamp = getFormattedTimestamp();
     
     let senderName = contact.name;
     let avatarUrl: string | undefined = contact.avatarUrl;
 
     if (role === 'bot') {
-      senderName = 'SalesBot (Salesbot #3)';
+      senderName = 'SalesBot (Salesbot #19)';
       avatarUrl = '/salesbot_avatar.jpg';
     } else if (role === 'agent') {
       senderName = contact.assignedUser;
@@ -43,6 +51,7 @@ export function App() {
       ...(avatarUrl ? { avatarUrl } : {}),
       timestamp,
       content: text,
+      ...(options && options.length > 0 ? { options } : {}),
       status: role === 'bot' ? 'read' : 'sent',
       channel: 'whatsapp'
     };

@@ -71,7 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="chat-item-badge">{contact.conversationNumber}</span>
               </div>
               <span className="chat-item-time">
-                {lastMessage?.timestamp || '24.09.2026 17:37'}
+                {lastMessage?.timestamp || '07.10.2026 15:49'}
               </span>
             </div>
 

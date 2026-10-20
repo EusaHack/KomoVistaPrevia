@@ -22,48 +22,26 @@ export const initialContact: LeadContact = {
 
 export const initialMessages: ChatMessage[] = [
   {
-    id: 'msg-0',
-    sender: 'bot',
-    senderName: 'SalesBot',
-    timestamp: '24.09.2026 17:36',
-    content: 'Perfecto, seleccionaste atención presencial. Antes de ...',
-    isHeaderSnippet: true
-  },
-  {
     id: 'msg-1',
-    sender: 'user',
-    senderName: 'Eusahack',
-    avatarUrl: '/eusahack_avatar.jpg',
-    timestamp: '24.09.2026 17:36',
-    content: 'Es mi primera cita',
-    channel: 'whatsapp'
-  },
-  {
-    id: 'msg-2',
     sender: 'bot',
-    senderName: 'SalesBot (Salesbot #3)',
+    senderName: 'SalesBot (Salesbot #19)',
     avatarUrl: '/salesbot_avatar.jpg',
-    timestamp: '24.09.2026 17:36',
+    timestamp: '07.10.2026 15:49',
     status: 'read',
-    content: `Perfecto 👏\n\nEntonces será tu primera cita con Healthec.\n\nModalidad seleccionada: Presencial.\n\nPara continuar, ¿cuál es tu nombre completo?\n\nPuedes seleccionar "Regresar" para volver al menú anterior.`,
-    channel: 'whatsapp'
-  },
-  {
-    id: 'msg-3',
-    sender: 'user',
-    senderName: 'Eusahack',
-    avatarUrl: '/eusahack_avatar.jpg',
-    timestamp: '24.09.2026 17:37',
-    content: 'Edgar Salinas',
+    content: `Hola 👋\n\nSoy el asistente virtual de Healthec.\n\n¿Sobre qué deseas información?`,
+    options: [
+      'Agendar una cita',
+      'Consultar precios',
+      'Formar parte de la red Healthec',
+      'Consultar ubicaciones'
+    ],
     channel: 'whatsapp'
   }
 ];
 
 export const quickReplies = [
-  'Es mi primera cita',
-  'Edgar Salinas',
-  'Atención Presencial',
-  'Consulta General',
-  'Confirmar Cita',
-  'Regresar'
+  'Agendar una cita',
+  'Consultar precios',
+  'Formar parte de la red Healthec',
+  'Consultar ubicaciones'
 ];
