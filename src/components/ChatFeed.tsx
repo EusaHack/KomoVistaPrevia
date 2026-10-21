@@ -278,8 +278,8 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
           'Consultar ubicaciones'
         ];
       } else if (lower.includes('elegir') || lower.includes('particular')) {
-        reply = `Perfecto 🩺\n\nPor favor escribe el nombre completo del doctor con quien deseas agendar tu cita:`;
-        nextOptions = ['Volver al menú'];
+        reply = `👨⚕️ Claro. Escribe el nombre o apellido del doctor con quien deseas agendar tu cita.\nEjemplo: Juan Pérez`;
+        nextOptions = undefined;
       } else {
         reply = `Excelente, te asignaremos al próximo especialista disponible ⏱️\n\n¿Qué especialidad médica requieres?`;
         nextOptions = [
@@ -296,6 +296,31 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
         role: 'bot',
         senderName: botSender,
         ...(nextOptions ? { options: nextOptions } : {})
+      });
+      return;
+    }
+
+    // 0.09 Si el bot estaba esperando el nombre o apellido del doctor
+    const isWaitingForDoctorName = Boolean(
+      lastBotMessage?.content?.includes('Escribe el nombre o apellido del doctor') ||
+      lastBotMessage?.content?.includes('Juan Pérez')
+    );
+
+    if (isWaitingForDoctorName && lower !== 'regresar') {
+      reply = `Buscando disponibilidad con el Dr./Dra. ${userQuery.trim()}... 🩺\n\n¿Para qué especialidad deseas agendar tu cita?`;
+      nextOptions = [
+        'Medicina General',
+        'Pediatría',
+        'Ginecología',
+        'Traumatología',
+        'Volver al menú'
+      ];
+      botSender = 'SalesBot (Salesbot #19)';
+      onSendMessage({
+        text: reply,
+        role: 'bot',
+        senderName: botSender,
+        options: nextOptions
       });
       return;
     }
