@@ -1,19 +1,16 @@
 import { CONFIG } from '../config';
-import type { ChatMessage, SenderRole } from '../types';
 
-export interface SendMessagePayload {
-  conversationId: string;
-  leadId: string;
-  sender: SenderRole;
-  text: string;
-  timestamp: string;
+export interface ValidarPacientePayload {
+  accion: 'validar_paciente';
+  nombre: string;
+  limit: number;
 }
 
-export interface BackendMessageResponse {
-  reply?: string;
-  options?: string[];
-  senderName?: string;
-  timestamp?: string;
+export interface ValidarPacienteResponse {
+  ok: boolean;
+  status: number;
+  data: any;
+  raw?: string;
 }
 
 /**
@@ -21,11 +18,17 @@ export interface BackendMessageResponse {
  */
 export const chatApiService = {
   /**
-   * Envía un mensaje al backend y espera la respuesta del bot/servidor
+   * Envía la acción de validar_paciente al endpoint VITE_API_URL
    */
-  async sendMessage(payload: SendMessagePayload): Promise<BackendMessageResponse | null> {
+  async validarPaciente(nombre: string, limit: number = 3): Promise<ValidarPacienteResponse> {
     try {
-      const response = await fetch(`${CONFIG.apiUrl}/messages`, {
+      const payload: ValidarPacientePayload = {
+        accion: 'validar_paciente',
+        nombre: nombre.trim(),
+        limit
+      };
+
+      const response = await fetch(CONFIG.apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -33,30 +36,28 @@ export const chatApiService = {
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        console.warn(`[Backend API] Error status ${response.status} from ${CONFIG.apiUrl}`);
-        return null;
+      const text = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = text;
       }
 
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.warn('[Backend API] No se pudo conectar con el backend. Usando simulación local.', error);
-      return null;
-    }
-  },
-
-  /**
-   * Obtiene el historial de mensajes de la conversación
-   */
-  async getMessages(conversationId: string = CONFIG.defaultConversationId): Promise<ChatMessage[] | null> {
-    try {
-      const response = await fetch(`${CONFIG.apiUrl}/conversations/${conversationId}/messages`);
-      if (!response.ok) return null;
-      return await response.json();
-    } catch (error) {
-      console.warn('[Backend API] Fallo al cargar historial remoto, usando mock.', error);
-      return null;
+      return {
+        ok: response.ok,
+        status: response.status,
+        data,
+        raw: text
+      };
+    } catch (error: any) {
+      console.warn('[Backend API Error]:', error);
+      return {
+        ok: false,
+        status: 0,
+        data: null,
+        raw: error?.message || 'Error de conexión con el backend (NetworkError / CORS)'
+      };
     }
   }
 };

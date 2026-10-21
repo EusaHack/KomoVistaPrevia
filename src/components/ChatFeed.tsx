@@ -15,6 +15,8 @@ import {
 import type { ChatMessage, LeadContact, SenderRole } from '../types';
 import { WhatsAppIcon } from './WhatsAppIcon';
 import { quickReplies } from '../mockData';
+import { chatApiService } from '../services/api';
+import { CONFIG } from '../config';
 
 interface ChatFeedProps {
   contact: LeadContact;
@@ -75,19 +77,48 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
     // If role is user and autoBotReply is enabled, simulate SalesBot response
     if (roleToSend === 'user' && autoBotReply) {
       setIsBotTyping(true);
-      setTimeout(() => {
+      setTimeout(async () => {
+        await generateBotResponse(text.trim());
         setIsBotTyping(false);
-        generateBotResponse(text.trim());
-      }, 1000);
+      }, 800);
     }
   };
 
-  const generateBotResponse = (userQuery: string) => {
+  const generateBotResponse = async (userQuery: string) => {
     const lower = userQuery.toLowerCase();
     let reply = '';
     let nextOptions: string[] | undefined = undefined;
     let botSender = 'SalesBot (Salesbot #3)';
     let botTimestamp: string | undefined = undefined;
+
+    // 0. Si el bot estaba esperando el nombre completo y el usuario responde su nombre
+    const lastBotMessage = [...messages].reverse().find(m => m.sender === 'bot');
+    const isWaitingForName = Boolean(
+      lastBotMessage?.content?.includes('cuál es tu nombre completo') ||
+      lastBotMessage?.content?.includes('nombre completo')
+    );
+
+    if ((isWaitingForName && lower !== 'regresar') || (lower.includes('salinas') && !lower.includes('cita'))) {
+      const result = await chatApiService.validarPaciente(userQuery.trim(), 3);
+
+      if (result.ok && result.data) {
+        if (typeof result.data === 'string') {
+          reply = result.data;
+        } else {
+          reply = JSON.stringify(result.data, null, 2);
+        }
+      } else {
+        reply = `Respuesta del backend (${CONFIG.apiUrl}):\nStatus: ${result.status}\n${result.raw || 'No se pudo conectar al backend'}\n\nPayload enviado:\n${JSON.stringify({ accion: 'validar_paciente', nombre: userQuery.trim(), limit: 3 }, null, 2)}`;
+      }
+
+      botSender = 'SalesBot (Salesbot #19)';
+      onSendMessage({
+        text: reply,
+        role: 'bot',
+        senderName: botSender
+      });
+      return;
+    }
 
     // 1. Primera cita (específico de primera vez)
     if (lower.includes('primera') || lower.includes('1️⃣') || lower.includes('primera cita')) {
