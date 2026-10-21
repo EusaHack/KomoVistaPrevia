@@ -87,6 +87,7 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
     let reply = '';
     let nextOptions: string[] | undefined = undefined;
     let botSender = 'SalesBot (Salesbot #3)';
+    let botTimestamp: string | undefined = undefined;
 
     if (lower.includes('cita') || lower.includes('agendar')) {
       reply = `🗓️ Perfecto.\n\n¿Qué modalidad prefieres?`;
@@ -105,11 +106,10 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
       ];
       botSender = 'SalesBot (Salesbot #3)';
     } else if (lower.includes('primera cita') || lower.includes('primera') || lower.includes('1️⃣')) {
-      reply = `Perfecto 👋\n\nEntonces será tu primera cita con Healthec.\n\nModalidad seleccionada: Presencial.\n\nPara continuar, ¿cuál es tu nombre completo?\n\nPuedes seleccionar "Regresar" para volver al menú anterior.`;
-      nextOptions = [
-        'Regresar'
-      ];
+      reply = `Perfecto 👏\n\nEntonces será tu primera cita con Healthec.\n\nModalidad seleccionada: Presencial.\n\nPara continuar, ¿cuál es tu nombre completo?\n\nPuedes seleccionar "Regresar" para volver al menú anterior.`;
+      nextOptions = undefined;
       botSender = 'SalesBot (Salesbot #19)';
+      botTimestamp = '07.10.2026 15:50';
     } else if (lower.includes('anteriormente') || lower.includes('ya he tenido') || lower.includes('2️⃣')) {
       reply = `¡Bienvenido de nuevo a Healthec! 🏥\n\nPara buscar tu expediente, por favor compártenos tu nombre completo o tu número de teléfono registrado:`;
       nextOptions = [
@@ -181,6 +181,7 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
       text: reply,
       role: 'bot',
       senderName: botSender,
+      ...(botTimestamp ? { timestamp: botTimestamp } : {}),
       ...(nextOptions ? { options: nextOptions } : {})
     });
   };
