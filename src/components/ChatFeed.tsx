@@ -172,6 +172,17 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
 
       // Guardar paciente seleccionado y su fecha de nacimiento en el estado y panel de datos
       setSelectedPatient(chosen);
+
+      // Console.log de los datos del usuario que escogió
+      console.log('👤 [Usuario seleccionado]:', chosen);
+      console.log('📋 Datos del paciente escogido:', {
+        opcionSeleccionada: selectedIndex,
+        nombre: chosen.nombre,
+        telefono: chosen.telefono,
+        email: chosen.email,
+        fechaNacimiento: chosen.fechaNacimiento
+      });
+
       onUpdateContact?.({
         birthDate: chosen.fechaNacimiento,
         email: chosen.email.includes('@') ? chosen.email : contact.email
@@ -202,6 +213,14 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
       const isCorrect = (inputNorm === expectedNorm) || 
         (selectedPatient?.index === 1 && inputNorm === '25/08/1995') ||
         (!selectedPatient && inputNorm === '25/08/1995');
+
+      console.log('🔍 [Comparación de fecha de nacimiento]:', {
+        usuarioEscogido: selectedPatient,
+        fechaIngresada: userQuery,
+        fechaNormalizada: inputNorm,
+        fechaEsperada: expected,
+        esCorrecto: isCorrect
+      });
 
       botSender = 'SalesBot (Salesbot #19)';
 
