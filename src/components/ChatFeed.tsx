@@ -230,9 +230,9 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
 
         reply = `Antes de elegir la especialidad, cuéntanos :\n¿Tienes algún doctor en particular en mente o prefieres que te asignemos cualquier doctor disponible?`;
         nextOptions = [
-          'Doctor en particular',
-          'Cualquier doctor disponible',
-          '↩️ Regresar al menú'
+          'Elegir doctor',
+          'Doctor disponible',
+          'Volver al menú'
         ];
 
         onSendMessage({
@@ -268,10 +268,18 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
       lastBotMessage?.content?.includes('doctor en particular')
     );
 
-    if (isWaitingForDoctorPref && lower !== 'regresar') {
-      if (lower.includes('particular')) {
+    if (isWaitingForDoctorPref) {
+      if (lower.includes('volver') || lower.includes('menú') || lower.includes('menu') || lower === 'regresar') {
+        reply = `Hola 👋\n\nSoy el asistente virtual de Healthec.\n\n¿Sobre qué deseas información?`;
+        nextOptions = [
+          'Agendar una cita',
+          'Consultar precios',
+          'Formar parte de la red Healthec',
+          'Consultar ubicaciones'
+        ];
+      } else if (lower.includes('elegir') || lower.includes('particular')) {
         reply = `Perfecto 🩺\n\nPor favor escribe el nombre completo del doctor con quien deseas agendar tu cita:`;
-        nextOptions = ['↩️ Regresar al menú'];
+        nextOptions = ['Volver al menú'];
       } else {
         reply = `Excelente, te asignaremos al próximo especialista disponible ⏱️\n\n¿Qué especialidad médica requieres?`;
         nextOptions = [
@@ -279,7 +287,7 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
           'Pediatría',
           'Ginecología',
           'Traumatología',
-          '↩️ Regresar al menú'
+          'Volver al menú'
         ];
       }
       botSender = 'SalesBot (Salesbot #19)';
