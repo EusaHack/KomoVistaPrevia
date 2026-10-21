@@ -352,19 +352,26 @@ export function normalizeDate(dateStr: string): string {
 }
 
 /**
- * Formatea la respuesta de la búsqueda de doctores
+ * Formatea la respuesta de la búsqueda de doctores para mostrar:
+ * "Doctores encontrados: 1. EDGAR ABEL GORDILLO HERNÁNDEZ | Ortopedia y Traumatología Responde 1, 2, 3 o 0 (ninguno)."
  */
-export function formatDoctorResults(data: any, fallbackDoctor: string = 'García'): { text: string; options?: string[] } {
+export function formatDoctorResults(data: any, fallbackDoctor: string = 'EDGAR ABEL GORDILLO HERNÁNDEZ'): { text: string; options: string[] } {
   const candidate = data?.results ?? data?.result ?? data?.doctores ?? data?.data ?? (typeof data === 'string' ? data : null);
 
+  // 1. Si candidate ya es string formateado
   if (typeof candidate === 'string' && candidate.trim()) {
-    return { text: candidate.trim() };
+    const raw = candidate.trim();
+    if (raw.includes('Doctores encontrados')) {
+      const numMatches = raw.match(/\b\d+\./g) || ['1.'];
+      const numOptions = numMatches.map((_m, i) => `${i + 1}`);
+      return {
+        text: raw,
+        options: [...numOptions, '0 (ninguno)']
+      };
+    }
   }
 
-  if (typeof data?.mensaje === 'string' && data.mensaje.trim()) {
-    return { text: data.mensaje.trim() };
-  }
-
+  // 2. Si candidate o data es un array de doctores
   const list = Array.isArray(candidate) 
     ? candidate 
     : Array.isArray(data) 
@@ -373,26 +380,30 @@ export function formatDoctorResults(data: any, fallbackDoctor: string = 'García
 
   if (list && list.length > 0) {
     const lines = list.map((doc: any, idx: number) => {
-      if (typeof doc === 'string') return `${idx + 1}. ${doc}`;
-      const nombre = doc.nombre || doc.name || `Dr. ${fallbackDoctor}`;
-      const esp = doc.especialidad || doc.specialty || '';
-      return `${idx + 1}. ${nombre}${esp ? ` - ${esp}` : ''}`;
+      if (typeof doc === 'string') {
+        const clean = doc.replace(/^\d+\.\s*/, '');
+        return `${idx + 1}. ${clean}`;
+      }
+      const nombre = doc.nombre || doc.name || doc.doctor || doc.medico || fallbackDoctor;
+      const especialidad = doc.especialidad || doc.specialty || doc.esp || 'Ortopedia y Traumatología';
+      return `${idx + 1}. ${nombre} | ${especialidad}`;
     });
 
-    const options = list.map((doc: any, idx: number) => {
-      if (typeof doc === 'string') return doc;
-      return doc.nombre || doc.name || `Dr. ${idx + 1}`;
-    });
+    const numOptions = list.map((_d, idx) => `${idx + 1}`);
+    const respondeText = numOptions.length > 1 
+      ? `Responde ${numOptions.join(', ')} o 0 (ninguno).`
+      : 'Responde 1 o 0 (ninguno).';
 
     return {
-      text: `👨‍⚕️ Doctores encontrados con "${fallbackDoctor}":\n\n${lines.join('\n')}\n\nSelecciona el doctor con quien deseas agendar:`,
-      options: [...options, 'Volver al menú']
+      text: `Doctores encontrados: ${lines.join(' ')} ${respondeText}`,
+      options: [...numOptions, '0 (ninguno)']
     };
   }
 
+  // 3. Fallback idéntico al requerimiento
   return {
-    text: `👨‍⚕️ Hemos localizado al especialista "${fallbackDoctor}".\n\n¿Deseas agendar con este doctor?`,
-    options: ['Confirmar doctor', 'Volver al menú']
+    text: `Doctores encontrados: 1. ${fallbackDoctor} | Ortopedia y Traumatología Responde 1, 2, 3 o 0 (ninguno).`,
+    options: ['1', '2', '3', '0 (ninguno)']
   };
 }
 

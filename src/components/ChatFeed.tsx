@@ -315,26 +315,12 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
       const doctorResult = await chatApiService.buscarDoctor(userQuery.trim());
       console.log('🩺 [Respuesta de buscar_doctor]:', doctorResult);
 
-      let doctorReply = '';
-      let docOptions: string[] | undefined = undefined;
-
-      if (doctorResult.ok && doctorResult.data) {
-        if (typeof doctorResult.data?.results === 'string') {
-          doctorReply = doctorResult.data.results;
-        } else if (typeof doctorResult.data === 'string') {
-          doctorReply = doctorResult.data;
-        } else if (typeof doctorResult.data?.mensaje === 'string') {
-          doctorReply = doctorResult.data.mensaje;
-        } else {
-          const formatted = formatDoctorResults(doctorResult.data, userQuery.trim());
-          doctorReply = formatted.text;
-          docOptions = formatted.options;
-        }
-      } else {
-        const formatted = formatDoctorResults(null, userQuery.trim());
-        doctorReply = formatted.text;
-        docOptions = formatted.options;
-      }
+      const formatted = formatDoctorResults(
+        doctorResult.ok ? doctorResult.data : null,
+        userQuery.trim()
+      );
+      const doctorReply = formatted.text;
+      const docOptions = formatted.options;
 
       botSender = 'SalesBot (Salesbot #19)';
       onSendMessage({
@@ -342,6 +328,40 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
         role: 'bot',
         senderName: botSender,
         ...(docOptions ? { options: docOptions } : {})
+      });
+      return;
+    }
+
+    // 0.095 Si el usuario está respondiendo a la selección de doctor encontrado (1, 2, 3 o 0)
+    const isWaitingForDoctorSelection = Boolean(
+      lastBotMessage?.content?.includes('Doctores encontrados') &&
+      lastBotMessage?.content?.includes('Responde')
+    );
+
+    if (isWaitingForDoctorSelection && (['1', '2', '3', '0', '0 (ninguno)'].includes(lower) || lower.includes('ninguno') || ['1', '2', '3'].includes(userQuery.trim()))) {
+      const selected = userQuery.trim().replace(/\D/g, '') || (lower.includes('ninguno') ? '0' : '1');
+      if (selected === '0') {
+        reply = `Entendido. ¿Prefieres buscar otro doctor por nombre o que te asignemos el próximo doctor disponible?`;
+        nextOptions = [
+          'Elegir doctor',
+          'Doctor disponible',
+          'Volver al menú'
+        ];
+      } else {
+        reply = `✅ Has seleccionado al doctor especialista.\n\n¿Para qué fecha u horario prefieres tu consulta?`;
+        nextOptions = [
+          '📅 Lo más pronto posible',
+          '🗓️ Esta semana',
+          '🗓️ Próxima semana',
+          'Volver al menú'
+        ];
+      }
+      botSender = 'SalesBot (Salesbot #19)';
+      onSendMessage({
+        text: reply,
+        role: 'bot',
+        senderName: botSender,
+        ...(nextOptions ? { options: nextOptions } : {})
       });
       return;
     }
