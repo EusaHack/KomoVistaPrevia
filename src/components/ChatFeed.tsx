@@ -15,8 +15,7 @@ import {
 import type { ChatMessage, LeadContact, SenderRole } from '../types';
 import { WhatsAppIcon } from './WhatsAppIcon';
 import { quickReplies } from '../mockData';
-import { chatApiService } from '../services/api';
-import { CONFIG } from '../config';
+import { chatApiService, formatPatientResults } from '../services/api';
 
 interface ChatFeedProps {
   contact: LeadContact;
@@ -58,6 +57,50 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
     scrollToBottom();
   }, [messages, isBotTyping]);
 
+  // Helper para renderizar texto con enlaces Markdown [texto](url)
+  const renderMessageContent = (content: string) => {
+    if (!content) return null;
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    if (!linkRegex.test(content)) {
+      return content;
+    }
+    linkRegex.lastIndex = 0;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = linkRegex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(content.substring(lastIndex, match.index));
+      }
+      const linkText = match[1];
+      const linkUrl = match[2];
+      parts.push(
+        <a 
+          key={match.index} 
+          href={linkUrl} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          style={{ 
+            color: '#38bdf8', 
+            textDecoration: 'underline',
+            cursor: 'pointer'
+          }}
+          title={linkUrl}
+        >
+          {linkText}
+        </a>
+      );
+      lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < content.length) {
+      parts.push(content.substring(lastIndex));
+    }
+
+    return parts;
+  };
+
   const handleSend = (textToSend?: string) => {
     const text = textToSend || inputText;
     if (!text.trim()) return;
@@ -91,8 +134,38 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
     let botSender = 'SalesBot (Salesbot #3)';
     let botTimestamp: string | undefined = undefined;
 
-    // 0. Si el bot estaba esperando el nombre completo y el usuario responde su nombre
     const lastBotMessage = [...messages].reverse().find(m => m.sender === 'bot');
+
+    // 0. Si el usuario está respondiendo a la selección de posibles registros (1, 2, 3 o 0)
+    const isWaitingForPatientSelection = Boolean(
+      lastBotMessage?.content?.includes('Posibles registros') ||
+      lastBotMessage?.content?.includes('Responde 1, 2, 3 o 0')
+    );
+
+    if (isWaitingForPatientSelection && (['1', '2', '3', '0', '0 (ninguno)'].includes(lower) || lower.includes('ninguno') || ['1', '2', '3'].includes(userQuery.trim()))) {
+      const selected = userQuery.trim().replace(/\D/g, '') || (lower.includes('ninguno') ? '0' : '1');
+      if (selected === '0') {
+        reply = `Entendido. Al no encontrarte en los registros, daremos de alta tu nuevo expediente.\n\nPor favor indícanos tu fecha de nacimiento (DD/MM/AAAA) y un correo electrónico:`;
+        nextOptions = ['↩️ Regresar al menú'];
+      } else {
+        reply = `✅ Registro ${selected} seleccionado correctamente.\n\nHemos vinculado tu expediente clínico.\n\n¿Para qué especialidad o servicio deseas agendar tu consulta?`;
+        nextOptions = [
+          'Consulta General',
+          'Especialidad Médica',
+          '↩️ Regresar al menú'
+        ];
+      }
+      botSender = 'SalesBot (Salesbot #19)';
+      onSendMessage({
+        text: reply,
+        role: 'bot',
+        senderName: botSender,
+        ...(nextOptions ? { options: nextOptions } : {})
+      });
+      return;
+    }
+
+    // 0.1 Si el bot estaba esperando el nombre completo y el usuario responde su nombre
     const isWaitingForName = Boolean(
       lastBotMessage?.content?.includes('cuál es tu nombre completo') ||
       lastBotMessage?.content?.includes('nombre completo')
@@ -101,21 +174,16 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
     if ((isWaitingForName && lower !== 'regresar') || (lower.includes('salinas') && !lower.includes('cita'))) {
       const result = await chatApiService.validarPaciente(userQuery.trim(), 3);
 
-      if (result.ok && result.data) {
-        if (typeof result.data === 'string') {
-          reply = result.data;
-        } else {
-          reply = JSON.stringify(result.data, null, 2);
-        }
-      } else {
-        reply = `Respuesta del backend (${CONFIG.apiUrl}):\nStatus: ${result.status}\n${result.raw || 'No se pudo conectar al backend'}\n\nPayload enviado:\n${JSON.stringify({ accion: 'validar_paciente', nombre: userQuery.trim(), limit: 3 }, null, 2)}`;
-      }
-
+      // Mostrar únicamente results formateado igual que el mensaje requerido
+      reply = formatPatientResults(result.ok ? result.data : null, userQuery.trim());
+      nextOptions = ['1', '2', '3', '0 (ninguno)'];
       botSender = 'SalesBot (Salesbot #19)';
+
       onSendMessage({
         text: reply,
         role: 'bot',
-        senderName: botSender
+        senderName: botSender,
+        options: nextOptions
       });
       return;
     }
@@ -343,7 +411,9 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
                       <span>{msg.timestamp} {msg.senderName}</span>
                     </div>
                   )}
-                  <div>{msg.content}</div>
+                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
+                    {renderMessageContent(msg.content)}
+                  </div>
                 </div>
               </div>
             );
@@ -363,7 +433,7 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
                   </div>
 
                   <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
-                    {msg.content}
+                    {renderMessageContent(msg.content)}
                   </div>
 
                   {/* Selectable Interactive Options */}
@@ -419,7 +489,9 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
                     <span>Entregado</span>
                   </span>
                 </div>
-                <div>{msg.content}</div>
+                <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
+                  {renderMessageContent(msg.content)}
+                </div>
               </div>
             </div>
           );
