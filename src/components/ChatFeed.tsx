@@ -89,34 +89,21 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
     let botSender = 'SalesBot (Salesbot #3)';
     let botTimestamp: string | undefined = undefined;
 
-    if (lower.includes('cita') || lower.includes('agendar')) {
-      reply = `🗓️ Perfecto.\n\n¿Qué modalidad prefieres?`;
-      nextOptions = [
-        '🏥 Presencial',
-        '💻 En línea',
-        '↩️ Regresar al menú'
-      ];
-      botSender = 'SalesBot (Salesbot #3)';
-    } else if (lower.includes('presencial')) {
-      reply = `🏥 Perfecto, seleccionaste atención presencial.\n\nAntes de continuar quisiera saber:\n\n¿Es la primera vez que nos visitas o ya has tenido alguna cita con nosotros anteriormente?`;
-      nextOptions = [
-        '1️⃣ Es mi primera cita',
-        '2️⃣ Ya he tenido una cita anteriormente',
-        '3️⃣ Regresar'
-      ];
-      botSender = 'SalesBot (Salesbot #3)';
-    } else if (lower.includes('primera cita') || lower.includes('primera') || lower.includes('1️⃣')) {
+    // 1. Primera cita (específico de primera vez)
+    if (lower.includes('primera') || lower.includes('1️⃣') || lower.includes('primera cita')) {
       reply = `Perfecto 👏\n\nEntonces será tu primera cita con Healthec.\n\nModalidad seleccionada: Presencial.\n\nPara continuar, ¿cuál es tu nombre completo?\n\nPuedes seleccionar "Regresar" para volver al menú anterior.`;
       nextOptions = undefined;
       botSender = 'SalesBot (Salesbot #19)';
       botTimestamp = '07.10.2026 15:50';
-    } else if (lower.includes('anteriormente') || lower.includes('ya he tenido') || lower.includes('2️⃣')) {
+    } 
+    // 2. Ya he tenido una cita anteriormente
+    else if (lower.includes('anteriormente') || lower.includes('ya he tenido') || lower.includes('2️⃣')) {
       reply = `¡Bienvenido de nuevo a Healthec! 🏥\n\nPara buscar tu expediente, por favor compártenos tu nombre completo o tu número de teléfono registrado:`;
-      nextOptions = [
-        'Regresar'
-      ];
+      nextOptions = undefined;
       botSender = 'SalesBot (Salesbot #3)';
-    } else if (userQuery === 'Regresar') {
+    } 
+    // 3. Regresar desde la pantalla de nombre completo
+    else if (userQuery === 'Regresar') {
       reply = `🏥 Perfecto, seleccionaste atención presencial.\n\nAntes de continuar quisiera saber:\n\n¿Es la primera vez que nos visitas o ya has tenido alguna cita con nosotros anteriormente?`;
       nextOptions = [
         '1️⃣ Es mi primera cita',
@@ -124,7 +111,9 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
         '3️⃣ Regresar'
       ];
       botSender = 'SalesBot (Salesbot #3)';
-    } else if (userQuery.includes('3️⃣') || userQuery === '3' || lower === '3 regresar') {
+    } 
+    // 4. Regresar desde el menú de 1/2/3 al menú de modalidad
+    else if (userQuery.includes('3️⃣') || userQuery === '3' || lower === '3 regresar') {
       reply = `🗓️ Perfecto.\n\n¿Qué modalidad prefieres?`;
       nextOptions = [
         '🏥 Presencial',
@@ -132,11 +121,33 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
         '↩️ Regresar al menú'
       ];
       botSender = 'SalesBot (Salesbot #3)';
-    } else if (lower.includes('línea') || lower.includes('linea') || lower.includes('online')) {
+    } 
+    // 5. Modalidad Presencial
+    else if (lower.includes('presencial')) {
+      reply = `🏥 Perfecto, seleccionaste atención presencial.\n\nAntes de continuar quisiera saber:\n\n¿Es la primera vez que nos visitas o ya has tenido alguna cita con nosotros anteriormente?`;
+      nextOptions = [
+        '1️⃣ Es mi primera cita',
+        '2️⃣ Ya he tenido una cita anteriormente',
+        '3️⃣ Regresar'
+      ];
+      botSender = 'SalesBot (Salesbot #3)';
+    } 
+    // 6. Modalidad En línea
+    else if (lower.includes('línea') || lower.includes('linea') || lower.includes('online')) {
       reply = `Perfecto, seleccionaste atención En línea.\n\nTe conectaremos mediante videollamada segura. ¿Para quién es la cita?`;
       nextOptions = [
         'Para mí',
         'Para un familiar / otra persona',
+        '↩️ Regresar al menú'
+      ];
+      botSender = 'SalesBot (Salesbot #3)';
+    } 
+    // 7. Agendar cita (menú inicial)
+    else if (lower.includes('agendar') || lower === 'agendar una cita' || lower === 'cita') {
+      reply = `🗓️ Perfecto.\n\n¿Qué modalidad prefieres?`;
+      nextOptions = [
+        '🏥 Presencial',
+        '💻 En línea',
         '↩️ Regresar al menú'
       ];
       botSender = 'SalesBot (Salesbot #3)';
