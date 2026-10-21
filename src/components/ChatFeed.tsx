@@ -105,7 +105,7 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
       ];
       botSender = 'SalesBot (Salesbot #3)';
     } else if (lower.includes('primera cita') || lower.includes('primera') || lower.includes('1️⃣')) {
-      reply = `Perfecto 👏\n\nEntonces será tu primera cita con Healthec.\n\nModalidad seleccionada: Presencial.\n\nPara continuar, ¿cuál es tu nombre completo?\n\nPuedes seleccionar "Regresar" para volver al menú anterior.`;
+      reply = `Perfecto 👋\n\nEntonces será tu primera cita con Healthec.\n\nModalidad seleccionada: Presencial.\n\nPara continuar, ¿cuál es tu nombre completo?\n\nPuedes seleccionar "Regresar" para volver al menú anterior.`;
       nextOptions = [
         'Regresar'
       ];
@@ -115,8 +115,8 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
       nextOptions = [
         'Regresar'
       ];
-      botSender = 'SalesBot (Salesbot #19)';
-    } else if (userQuery === 'Regresar' || lower === 'regresar') {
+      botSender = 'SalesBot (Salesbot #3)';
+    } else if (userQuery === 'Regresar') {
       reply = `🏥 Perfecto, seleccionaste atención presencial.\n\nAntes de continuar quisiera saber:\n\n¿Es la primera vez que nos visitas o ya has tenido alguna cita con nosotros anteriormente?`;
       nextOptions = [
         '1️⃣ Es mi primera cita',
@@ -124,7 +124,7 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
         '3️⃣ Regresar'
       ];
       botSender = 'SalesBot (Salesbot #3)';
-    } else if (userQuery.includes('3️⃣')) {
+    } else if (userQuery.includes('3️⃣') || userQuery === '3' || lower === '3 regresar') {
       reply = `🗓️ Perfecto.\n\n¿Qué modalidad prefieres?`;
       nextOptions = [
         '🏥 Presencial',
