@@ -405,9 +405,13 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
       const horariosResponse = await chatApiService.horariosDoctor(doctorId);
       console.log('📅 [Respuesta horarios_doctor]:', horariosResponse);
 
+      const patientName = selectedPatient?.nombre || contact.personName || 'Edgar Salinas';
+
       const formattedHorarios = formatHorariosResults(
         horariosResponse.ok ? horariosResponse.data : null,
-        chosenDoc.nombre
+        chosenDoc.nombre,
+        patientName,
+        chosenDoc
       );
 
       onSendMessage({
@@ -419,16 +423,27 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
       return;
     }
 
-    // 0.098 Si el bot mostró horarios disponibles y el usuario escoge uno
+    // 0.098 Si el bot mostró horarios disponibles y el usuario ingresa la fecha y hora DD/MM/AAAA HH
     const isWaitingForScheduleSelection = Boolean(
-      lastBotMessage?.content?.includes('Horarios disponibles') ||
-      lastBotMessage?.content?.includes('Selecciona el horario')
+      lastBotMessage?.content?.includes('¿Qué día y a qué hora te gustaría agendar tu cita?') ||
+      lastBotMessage?.content?.includes('DD/MM/AAAA HH') ||
+      lastBotMessage?.content?.includes('Horarios de atención') ||
+      lastBotMessage?.content?.includes('Horarios disponibles')
     );
 
-    if (isWaitingForScheduleSelection && !lower.includes('menú') && !lower.includes('volver')) {
+    if (isWaitingForScheduleSelection && !lower.includes('menú') && !lower.includes('volver') && lower !== 'regresar') {
       const docLabel = selectedDoctor?.nombre || 'EDGAR ABEL GORDILLO HERNÁNDEZ';
+      const patientName = selectedPatient?.nombre || contact.personName || 'Edgar Salinas';
       const docIdStr = selectedDoctorId ? ` (ID: ${selectedDoctorId})` : '';
-      reply = `🎉 ¡Excelente elección! Hemos registrado tu solicitud de cita con el Dr. ${docLabel}${docIdStr}.\n\nHorario seleccionado: "${userQuery.trim()}".\n\n¿Deseas confirmar la cita?`;
+
+      console.log('📅 [Cita solicitada]:', {
+        paciente: patientName,
+        doctor: docLabel,
+        doctorId: selectedDoctorId || 104,
+        fechaHora: userQuery.trim()
+      });
+
+      reply = `🎉 ¡Perfecto, ${patientName}! Hemos registrado tu solicitud de cita con el Dr. ${docLabel}${docIdStr}.\n\n📅 Fecha y hora: ${userQuery.trim()}\n\n¿Deseas confirmar la cita?`;
       nextOptions = ['Confirmar cita', 'Cambiar horario', 'Volver al menú'];
       botSender = 'SalesBot (Salesbot #19)';
       onSendMessage({

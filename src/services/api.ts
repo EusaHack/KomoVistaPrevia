@@ -507,51 +507,117 @@ export function formatDoctorResults(data: any, fallbackDoctor: string = 'EDGAR A
 }
 
 /**
- * Formatea los horarios disponibles retornados por el backend
+ * Extrae el texto del horario de atención del doctor a partir de la respuesta del backend
  */
-export function formatHorariosResults(data: any, doctorName: string = 'EDGAR ABEL GORDILLO HERNÁNDEZ'): { text: string; options?: string[] } {
-  const candidate = data?.results ?? data?.result ?? data?.horarios ?? data?.data ?? (typeof data === 'string' ? data : null);
+export function extractDoctorSchedule(data: any): string {
+  if (!data) return 'Lunes a Viernes de 09:00 a 14:00 y 16:00 a 20:00 hrs.';
+
+  if (typeof data === 'string' && data.trim()) {
+    const clean = data.trim();
+    if (clean.includes('Horarios de atención:')) {
+      const match = clean.match(/Horarios de atención:\s*([\s\S]+?)(?=\n\s*\n|\n\s*¿|$)/i);
+      if (match && match[1].trim()) return match[1].trim();
+    }
+    return clean;
+  }
+
+  const candidate = 
+    data?.horario_doctor ?? 
+    data?.horarios_doctor ?? 
+    data?.horario_atencion ?? 
+    data?.horarios_atencion ?? 
+    data?.horario ?? 
+    data?.horarios ?? 
+    data?.results ?? 
+    data?.result ?? 
+    data?.data ?? 
+    data?.mensaje ?? 
+    data?.message;
 
   if (typeof candidate === 'string' && candidate.trim()) {
-    return { text: candidate.trim() };
+    const clean = candidate.trim();
+    if (clean.includes('Horarios de atención:')) {
+      const match = clean.match(/Horarios de atención:\s*([\s\S]+?)(?=\n\s*\n|\n\s*¿|$)/i);
+      if (match && match[1].trim()) return match[1].trim();
+    }
+    return clean;
   }
 
-  if (typeof data?.mensaje === 'string' && data.mensaje.trim()) {
-    return { text: data.mensaje.trim() };
-  }
-
-  const list = Array.isArray(candidate) 
-    ? candidate 
-    : Array.isArray(data) 
-      ? data 
-      : null;
-
-  if (list && list.length > 0) {
-    const lines = list.map((slot: any, idx: number) => {
-      if (typeof slot === 'string') return `${idx + 1}. ${slot}`;
-      const fecha = slot.fecha || slot.dia || slot.date || `Horario ${idx + 1}`;
-      const hora = slot.hora || slot.horario || slot.time || '';
-      return `${idx + 1}. ${fecha}${hora ? ` a las ${hora}` : ''}`;
-    });
-
-    const options = list.map((slot: any, idx: number) => {
+  if (Array.isArray(candidate) && candidate.length > 0) {
+    return candidate.map((slot: any, idx: number) => {
       if (typeof slot === 'string') return slot;
-      const fecha = slot.fecha || slot.dia || '';
-      const hora = slot.hora || slot.horario || slot.time || `Horario ${idx + 1}`;
-      return `${fecha} ${hora}`.trim();
-    });
-
-    return {
-      text: `🗓️ Horarios disponibles para ${doctorName}:\n\n${lines.join('\n')}\n\nSelecciona el horario de tu cita:`,
-      options: [...options, 'Volver al menú']
-    };
+      const dia = slot.dia || slot.dias || slot.day || slot.fecha || '';
+      const hora = slot.hora || slot.horario || slot.time || '';
+      if (dia && hora) return `${dia}: ${hora}`;
+      return slot.descripcion || slot.texto || `${dia || hora || `Horario ${idx + 1}`}`;
+    }).join('\n');
   }
 
-  // Fallback por defecto si no vienen slots
+  return 'Lunes a Viernes de 09:00 a 14:00 y 16:00 a 20:00 hrs.';
+}
+
+/**
+ * Formatea el mensaje con los datos del doctor y horarios con la plantilla solicitada:
+ * Perfecto, [Nombre paciente] . 
+ * Doctor: [Nombre doctor] 
+ * Especialidad: [Especialidad doctor] 
+ * Horarios de atención:
+ * [Horario doctor] 
+ * 
+ * 
+ * ¿Qué día y a qué hora te gustaría agendar tu cita?
+ * 
+ * Por favor, escribe la fecha y hora que prefieres utilizando el siguiente formato:
+ * 
+ * DD/MM/AAAA HH
+ * 
+ * Por ejemplo: 16/10/2026 13:00
+ */
+export function formatDoctorScheduleMessage(
+  data: any,
+  patientName: string = 'Edgar Salinas',
+  doctor?: Partial<ExtractedDoctor>
+): { text: string; options?: string[] } {
+  const schedule = extractDoctorSchedule(data);
+  const patient = (patientName || 'Edgar Salinas').trim();
+  const docName = (doctor?.nombre || 'EDGAR ABEL GORDILLO HERNÁNDEZ').trim();
+  const specialty = (doctor?.especialidad || 'Ortopedia y Traumatología').trim();
+
+  const text = `Perfecto, ${patient} . 
+Doctor: ${docName} 
+Especialidad: ${specialty} 
+Horarios de atención:
+${schedule} 
+
+
+¿Qué día y a qué hora te gustaría agendar tu cita?
+
+Por favor, escribe la fecha y hora que prefieres utilizando el siguiente formato:
+
+DD/MM/AAAA HH
+
+Por ejemplo: 16/10/2026 13:00`;
+
   return {
-    text: `🗓️ Horarios disponibles para ${doctorName}:\n\n1. Mañana a las 10:00 AM\n2. Mañana a las 04:30 PM\n3. Pasado mañana a las 11:00 AM\n\n¿Qué horario prefieres?`,
-    options: ['Mañana 10:00 AM', 'Mañana 04:30 PM', 'Pasado mañana 11:00 AM', 'Volver al menú']
+    text,
+    options: ['16/10/2026 13:00', 'Volver al menú']
   };
+}
+
+/**
+ * Formatea los horarios disponibles retornados por el backend
+ */
+export function formatHorariosResults(
+  data: any, 
+  doctorName: string = 'EDGAR ABEL GORDILLO HERNÁNDEZ',
+  patientName: string = 'Edgar Salinas',
+  doctor?: Partial<ExtractedDoctor>
+): { text: string; options?: string[] } {
+  return formatDoctorScheduleMessage(data, patientName, {
+    nombre: doctorName,
+    especialidad: doctor?.especialidad || 'Ortopedia y Traumatología',
+    ...doctor
+  });
 }
 
 
