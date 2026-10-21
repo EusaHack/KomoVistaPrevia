@@ -142,25 +142,36 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
       lastBotMessage?.content?.includes('Responde 1, 2, 3 o 0')
     );
 
-    if (isWaitingForPatientSelection && (['1', '2', '3', '0', '0 (ninguno)'].includes(lower) || lower.includes('ninguno') || ['1', '2', '3'].includes(userQuery.trim()))) {
-      const selected = userQuery.trim().replace(/\D/g, '') || (lower.includes('ninguno') ? '0' : '1');
-      if (selected === '0') {
-        reply = `Entendido. Al no encontrarte en los registros, daremos de alta tu nuevo expediente.\n\nPor favor indícanos tu fecha de nacimiento (DD/MM/AAAA) y un correo electrónico:`;
-        nextOptions = ['↩️ Regresar al menú'];
-      } else {
-        reply = `✅ Registro ${selected} seleccionado correctamente.\n\nHemos vinculado tu expediente clínico.\n\n¿Para qué especialidad o servicio deseas agendar tu consulta?`;
-        nextOptions = [
-          'Consulta General',
-          'Especialidad Médica',
-          '↩️ Regresar al menú'
-        ];
-      }
+    if (isWaitingForPatientSelection && (['1', '2', '3', '0', '0 (ninguno)'].includes(lower) || lower.includes('ninguno') || ['1', '2', '3'].includes(userQuery.trim()) || userQuery.trim().length === 1)) {
+      reply = `Para continuar con la verificación de tu identidad, escribe tu fecha de nacimiento en formato DD/MM/AAAA.\nEjemplo: 25/08/1995`;
+      botSender = 'SalesBot (Salesbot #19)';
+      onSendMessage({
+        text: reply,
+        role: 'bot',
+        senderName: botSender
+      });
+      return;
+    }
+
+    // 0.05 Si el bot estaba esperando la fecha de nacimiento para verificar identidad
+    const isWaitingForBirthdate = Boolean(
+      lastBotMessage?.content?.includes('fecha de nacimiento') ||
+      lastBotMessage?.content?.includes('verificación de tu identidad')
+    );
+
+    if (isWaitingForBirthdate && lower !== 'regresar') {
+      reply = `¡Identidad verificada exitosamente! ✅\n\n¿Qué tipo de consulta deseas agendar?`;
+      nextOptions = [
+        'Consulta General',
+        'Consulta Especialidad',
+        '↩️ Regresar al menú'
+      ];
       botSender = 'SalesBot (Salesbot #19)';
       onSendMessage({
         text: reply,
         role: 'bot',
         senderName: botSender,
-        ...(nextOptions ? { options: nextOptions } : {})
+        options: nextOptions
       });
       return;
     }
