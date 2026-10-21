@@ -15,7 +15,7 @@ import {
 import type { ChatMessage, LeadContact, SenderRole } from '../types';
 import { WhatsAppIcon } from './WhatsAppIcon';
 import { quickReplies } from '../mockData';
-import { chatApiService, formatPatientResults, extractPatientList, normalizeDate, type ExtractedPatient } from '../services/api';
+import { chatApiService, formatPatientResults, formatDoctorResults, extractPatientList, normalizeDate, type ExtractedPatient } from '../services/api';
 
 interface ChatFeedProps {
   contact: LeadContact;
@@ -307,20 +307,41 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
     );
 
     if (isWaitingForDoctorName && lower !== 'regresar') {
-      reply = `Buscando disponibilidad con el Dr./Dra. ${userQuery.trim()}... 🩺\n\n¿Para qué especialidad deseas agendar tu cita?`;
-      nextOptions = [
-        'Medicina General',
-        'Pediatría',
-        'Ginecología',
-        'Traumatología',
-        'Volver al menú'
-      ];
+      console.log('🩺 [Buscando doctor]:', {
+        accion: 'buscar_doctor',
+        nombre: userQuery.trim()
+      });
+
+      const doctorResult = await chatApiService.buscarDoctor(userQuery.trim());
+      console.log('🩺 [Respuesta de buscar_doctor]:', doctorResult);
+
+      let doctorReply = '';
+      let docOptions: string[] | undefined = undefined;
+
+      if (doctorResult.ok && doctorResult.data) {
+        if (typeof doctorResult.data?.results === 'string') {
+          doctorReply = doctorResult.data.results;
+        } else if (typeof doctorResult.data === 'string') {
+          doctorReply = doctorResult.data;
+        } else if (typeof doctorResult.data?.mensaje === 'string') {
+          doctorReply = doctorResult.data.mensaje;
+        } else {
+          const formatted = formatDoctorResults(doctorResult.data, userQuery.trim());
+          doctorReply = formatted.text;
+          docOptions = formatted.options;
+        }
+      } else {
+        const formatted = formatDoctorResults(null, userQuery.trim());
+        doctorReply = formatted.text;
+        docOptions = formatted.options;
+      }
+
       botSender = 'SalesBot (Salesbot #19)';
       onSendMessage({
-        text: reply,
+        text: doctorReply,
         role: 'bot',
         senderName: botSender,
-        options: nextOptions
+        ...(docOptions ? { options: docOptions } : {})
       });
       return;
     }

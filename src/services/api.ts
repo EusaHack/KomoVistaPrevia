@@ -13,6 +13,18 @@ export interface ValidarPacienteResponse {
   raw?: string;
 }
 
+export interface BuscarDoctorPayload {
+  accion: 'buscar_doctor';
+  nombre: string;
+}
+
+export interface BuscarDoctorResponse {
+  ok: boolean;
+  status: number;
+  data: any;
+  raw?: string;
+}
+
 /**
  * Servicio para conectar el emulador con la API del backend
  */
@@ -51,7 +63,50 @@ export const chatApiService = {
         raw: text
       };
     } catch (error: any) {
-      console.warn('[Backend API Error]:', error);
+      console.warn('[Backend API Error (validar_paciente)]:', error);
+      return {
+        ok: false,
+        status: 0,
+        data: null,
+        raw: error?.message || 'Error de conexión con el backend (NetworkError / CORS)'
+      };
+    }
+  },
+
+  /**
+   * Envía la acción de buscar_doctor al endpoint VITE_API_URL
+   */
+  async buscarDoctor(nombre: string): Promise<BuscarDoctorResponse> {
+    try {
+      const payload: BuscarDoctorPayload = {
+        accion: 'buscar_doctor',
+        nombre: nombre.trim()
+      };
+
+      const response = await fetch(CONFIG.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const text = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = text;
+      }
+
+      return {
+        ok: response.ok,
+        status: response.status,
+        data,
+        raw: text
+      };
+    } catch (error: any) {
+      console.warn('[Backend API Error (buscar_doctor)]:', error);
       return {
         ok: false,
         status: 0,
@@ -295,4 +350,50 @@ export function normalizeDate(dateStr: string): string {
   const year = match[3];
   return `${day}/${month}/${year}`;
 }
+
+/**
+ * Formatea la respuesta de la búsqueda de doctores
+ */
+export function formatDoctorResults(data: any, fallbackDoctor: string = 'García'): { text: string; options?: string[] } {
+  const candidate = data?.results ?? data?.result ?? data?.doctores ?? data?.data ?? (typeof data === 'string' ? data : null);
+
+  if (typeof candidate === 'string' && candidate.trim()) {
+    return { text: candidate.trim() };
+  }
+
+  if (typeof data?.mensaje === 'string' && data.mensaje.trim()) {
+    return { text: data.mensaje.trim() };
+  }
+
+  const list = Array.isArray(candidate) 
+    ? candidate 
+    : Array.isArray(data) 
+      ? data 
+      : null;
+
+  if (list && list.length > 0) {
+    const lines = list.map((doc: any, idx: number) => {
+      if (typeof doc === 'string') return `${idx + 1}. ${doc}`;
+      const nombre = doc.nombre || doc.name || `Dr. ${fallbackDoctor}`;
+      const esp = doc.especialidad || doc.specialty || '';
+      return `${idx + 1}. ${nombre}${esp ? ` - ${esp}` : ''}`;
+    });
+
+    const options = list.map((doc: any, idx: number) => {
+      if (typeof doc === 'string') return doc;
+      return doc.nombre || doc.name || `Dr. ${idx + 1}`;
+    });
+
+    return {
+      text: `👨‍⚕️ Doctores encontrados con "${fallbackDoctor}":\n\n${lines.join('\n')}\n\nSelecciona el doctor con quien deseas agendar:`,
+      options: [...options, 'Volver al menú']
+    };
+  }
+
+  return {
+    text: `👨‍⚕️ Hemos localizado al especialista "${fallbackDoctor}".\n\n¿Deseas agendar con este doctor?`,
+    options: ['Confirmar doctor', 'Volver al menú']
+  };
+}
+
 
