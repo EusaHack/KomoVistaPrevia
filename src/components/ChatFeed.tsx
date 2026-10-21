@@ -19,7 +19,13 @@ import { quickReplies } from '../mockData';
 interface ChatFeedProps {
   contact: LeadContact;
   messages: ChatMessage[];
-  onSendMessage: (msg: { text: string; role: SenderRole; options?: string[] }) => void;
+  onSendMessage: (msg: { 
+    text: string; 
+    role: SenderRole; 
+    options?: string[]; 
+    senderName?: string;
+    timestamp?: string;
+  }) => void;
   onResetMessages: () => void;
   onMarkStatus: (status: 'resolved' | 'waiting') => void;
 }
@@ -80,40 +86,56 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
     const lower = userQuery.toLowerCase();
     let reply = '';
     let nextOptions: string[] | undefined = undefined;
+    let botSender = 'SalesBot (Salesbot #3)';
 
     if (lower.includes('cita') || lower.includes('agendar')) {
-      reply = `¡Excelente! Para agendar tu cita con Healthec, por favor selecciona la modalidad de atención que prefieres:`;
+      reply = `🗓️ Perfecto.\n\n¿Qué modalidad prefieres?`;
       nextOptions = [
-        'Atención Presencial',
-        'Consulta Online / Telemedicina',
-        'Regresar al menú anterior'
+        '🏥 Presencial',
+        '💻 En línea',
+        '↩️ Regresar al menú'
       ];
+      botSender = 'SalesBot (Salesbot #3)';
+    } else if (lower.includes('presencial')) {
+      reply = `Perfecto, seleccionaste atención presencial.\n\n¿Para quién es la cita?`;
+      nextOptions = [
+        'Para mí',
+        'Para un familiar / otra persona',
+        '↩️ Regresar al menú'
+      ];
+      botSender = 'SalesBot (Salesbot #3)';
+    } else if (lower.includes('línea') || lower.includes('linea') || lower.includes('online')) {
+      reply = `Perfecto, seleccionaste atención En línea.\n\nTe conectaremos mediante videollamada segura. ¿Para quién es la cita?`;
+      nextOptions = [
+        'Para mí',
+        'Para un familiar / otra persona',
+        '↩️ Regresar al menú'
+      ];
+      botSender = 'SalesBot (Salesbot #3)';
     } else if (lower.includes('precios') || lower.includes('costo')) {
       reply = `Nuestros precios actuales de consulta son:\n\n• Consulta General: $450 MXN\n• Consulta Especialidad: $850 MXN\n• Paquete de Seguimiento: $1,200 MXN\n\n¿Deseas agendar tu cita ahora?`;
       nextOptions = [
         'Agendar una cita',
         'Hablar con un asesor',
-        'Regresar al menú anterior'
+        '↩️ Regresar al menú'
       ];
+      botSender = 'SalesBot (Salesbot #19)';
     } else if (lower.includes('red') || lower.includes('formar parte')) {
       reply = `¡Nos complace tu interés en formar parte de la red médica Healthec! 🩺\n\nPara iniciar tu proceso de afiliación, por favor compártenos tu especialidad médica y cédula profesional.`;
       nextOptions = [
         'Especialista / Médico General',
         'Clínica / Centro de Salud',
-        'Regresar al menú anterior'
+        '↩️ Regresar al menú'
       ];
+      botSender = 'SalesBot (Salesbot #19)';
     } else if (lower.includes('ubicacion') || lower.includes('ubicaciones') || lower.includes('donde')) {
       reply = `Contamos con las siguientes ubicaciones para tu atención:\n\n📍 Sede Central: Insurgentes Sur 1450, Col. Actipan, CDMX\n📍 Sede Norte: Plaza Satélite, Torre Médica Piso 4\n\nHorario: Lunes a Sábado de 8:00 AM a 8:00 PM`;
       nextOptions = [
-        'Agendar en Sede Central',
-        'Agendar en Sede Norte',
-        'Regresar al menú anterior'
+        'Agendar una cita',
+        '↩️ Regresar al menú'
       ];
-    } else if (lower.includes('presencial')) {
-      reply = `Perfecto. Modalidad Presencial seleccionada en Sede Central.\n\nPara continuar con el registro, por favor ingresa tu nombre completo:`;
-    } else if (lower.includes('online') || lower.includes('telemedicina')) {
-      reply = `Excelente. Modalidad Consulta Online seleccionada.\n\nTe enviaremos el enlace de la videollamada a tu WhatsApp. Por favor ingresa tu nombre completo:`;
-    } else if (lower.includes('regresar') || lower.includes('menú')) {
+      botSender = 'SalesBot (Salesbot #19)';
+    } else if (lower.includes('regresar') || lower.includes('menú') || lower.includes('menu')) {
       reply = `Hola 👋\n\nSoy el asistente virtual de Healthec.\n\n¿Sobre qué deseas información?`;
       nextOptions = [
         'Agendar una cita',
@@ -121,13 +143,16 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
         'Formar parte de la red Healthec',
         'Consultar ubicaciones'
       ];
+      botSender = 'SalesBot (Salesbot #19)';
     } else {
       reply = `Entendido. He recibido tu mensaje: "${userQuery}".\n\nUn asesor de Healthec continuará la atención en breve.`;
+      botSender = 'SalesBot (Salesbot #3)';
     }
 
     onSendMessage({
       text: reply,
       role: 'bot',
+      senderName: botSender,
       ...(nextOptions ? { options: nextOptions } : {})
     });
   };
@@ -273,9 +298,6 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
                   {/* Selectable Interactive Options */}
                   {msg.options && msg.options.length > 0 && (
                     <div className="bot-options-container">
-                      <div className="bot-options-title">
-                        <span>Opciones disponibles:</span>
-                      </div>
                       {msg.options.map((opt, i) => (
                         <button
                           key={i}
@@ -283,7 +305,9 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
                           onClick={() => handleSend(opt)}
                           title={`Seleccionar y responder: "${opt}"`}
                         >
-                          <span>{opt}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {opt}
+                          </span>
                           <ChevronRight size={14} className="bot-option-icon" />
                         </button>
                       ))}

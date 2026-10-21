@@ -25,22 +25,26 @@ export function App() {
   const handleSendMessage = ({ 
     text, 
     role, 
-    options 
+    options,
+    senderName: customSenderName,
+    timestamp: customTimestamp
   }: { 
     text: string; 
     role: SenderRole; 
     options?: string[]; 
+    senderName?: string;
+    timestamp?: string;
   }) => {
-    const timestamp = getFormattedTimestamp();
+    const timestamp = customTimestamp || getFormattedTimestamp();
     
     let senderName = contact.name;
     let avatarUrl: string | undefined = contact.avatarUrl;
 
     if (role === 'bot') {
-      senderName = 'SalesBot (Salesbot #19)';
+      senderName = customSenderName || 'SalesBot (Salesbot #3)';
       avatarUrl = '/salesbot_avatar.jpg';
     } else if (role === 'agent') {
-      senderName = contact.assignedUser;
+      senderName = customSenderName || contact.assignedUser;
       avatarUrl = undefined;
     }
 
