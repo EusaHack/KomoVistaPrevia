@@ -31,6 +31,8 @@ export interface LeadContact {
   subscription: string;
   avatarUrl: string;
   birthDate?: string;
+  doctorId?: number;
+  doctorName?: string;
   status: 'active' | 'resolved' | 'waiting';
   channel: 'whatsapp';
 }

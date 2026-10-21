@@ -25,6 +25,18 @@ export interface BuscarDoctorResponse {
   raw?: string;
 }
 
+export interface HorariosDoctorPayload {
+  accion: 'horarios_doctor';
+  doctor_id: number;
+}
+
+export interface HorariosDoctorResponse {
+  ok: boolean;
+  status: number;
+  data: any;
+  raw?: string;
+}
+
 /**
  * Servicio para conectar el emulador con la API del backend
  */
@@ -107,6 +119,49 @@ export const chatApiService = {
       };
     } catch (error: any) {
       console.warn('[Backend API Error (buscar_doctor)]:', error);
+      return {
+        ok: false,
+        status: 0,
+        data: null,
+        raw: error?.message || 'Error de conexión con el backend (NetworkError / CORS)'
+      };
+    }
+  },
+
+  /**
+   * Envía la acción de horarios_doctor con doctor_id al endpoint VITE_API_URL
+   */
+  async horariosDoctor(doctorId: number): Promise<HorariosDoctorResponse> {
+    try {
+      const payload: HorariosDoctorPayload = {
+        accion: 'horarios_doctor',
+        doctor_id: Number(doctorId)
+      };
+
+      const response = await fetch(CONFIG.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const text = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = text;
+      }
+
+      return {
+        ok: response.ok,
+        status: response.status,
+        data,
+        raw: text
+      };
+    } catch (error: any) {
+      console.warn('[Backend API Error (horarios_doctor)]:', error);
       return {
         ok: false,
         status: 0,
@@ -351,22 +406,51 @@ export function normalizeDate(dateStr: string): string {
   return `${day}/${month}/${year}`;
 }
 
+export interface ExtractedDoctor {
+  index: number;
+  id: number;
+  nombre: string;
+  especialidad: string;
+}
+
 /**
  * Formatea la respuesta de la búsqueda de doctores para mostrar:
  * "Doctores encontrados: 1. EDGAR ABEL GORDILLO HERNÁNDEZ | Ortopedia y Traumatología Responde 1, 2, 3 o 0 (ninguno)."
  */
-export function formatDoctorResults(data: any, fallbackDoctor: string = 'EDGAR ABEL GORDILLO HERNÁNDEZ'): { text: string; options: string[] } {
+export function formatDoctorResults(data: any, fallbackDoctor: string = 'EDGAR ABEL GORDILLO HERNÁNDEZ'): { text: string; options: string[]; doctors: ExtractedDoctor[] } {
   const candidate = data?.results ?? data?.result ?? data?.doctores ?? data?.data ?? (typeof data === 'string' ? data : null);
+
+  const defaultDoctor: ExtractedDoctor = {
+    index: 1,
+    id: 104,
+    nombre: fallbackDoctor,
+    especialidad: 'Ortopedia y Traumatología'
+  };
 
   // 1. Si candidate ya es string formateado
   if (typeof candidate === 'string' && candidate.trim()) {
     const raw = candidate.trim();
     if (raw.includes('Doctores encontrados')) {
-      const numMatches = raw.match(/\b\d+\./g) || ['1.'];
-      const numOptions = numMatches.map((_m, i) => `${i + 1}`);
+      const regex = /(\d+)\.\s*([^|]+)\|\s*([^\d\n]+?)(?=(?:\s+\d+\.|\s+Responde|$))/g;
+      const parsedDoctors: ExtractedDoctor[] = [];
+      let match: RegExpExecArray | null;
+      while ((match = regex.exec(raw)) !== null) {
+        const idx = parseInt(match[1], 10);
+        const name = match[2].trim();
+        const esp = match[3].trim().replace(/\s+Responde.*$/i, '');
+        parsedDoctors.push({
+          index: idx,
+          id: idx === 1 ? 104 : (104 + idx - 1),
+          nombre: name,
+          especialidad: esp
+        });
+      }
+      const doctors = parsedDoctors.length > 0 ? parsedDoctors : [defaultDoctor];
+      const numOptions = doctors.map(d => `${d.index}`);
       return {
         text: raw,
-        options: [...numOptions, '0 (ninguno)']
+        options: [...numOptions, '0 (ninguno)'],
+        doctors
       };
     }
   }
@@ -379,31 +463,94 @@ export function formatDoctorResults(data: any, fallbackDoctor: string = 'EDGAR A
       : null;
 
   if (list && list.length > 0) {
-    const lines = list.map((doc: any, idx: number) => {
+    const doctors: ExtractedDoctor[] = list.map((doc: any, idx: number) => {
       if (typeof doc === 'string') {
         const clean = doc.replace(/^\d+\.\s*/, '');
-        return `${idx + 1}. ${clean}`;
+        const parts = clean.split('|');
+        return {
+          index: idx + 1,
+          id: 104 + idx,
+          nombre: (parts[0] || clean).trim(),
+          especialidad: (parts[1] || 'Ortopedia y Traumatología').trim()
+        };
       }
+      const rawId = doc.id ?? doc.doctor_id ?? doc.id_doctor ?? doc.id_medico ?? (104 + idx);
       const nombre = doc.nombre || doc.name || doc.doctor || doc.medico || fallbackDoctor;
       const especialidad = doc.especialidad || doc.specialty || doc.esp || 'Ortopedia y Traumatología';
-      return `${idx + 1}. ${nombre} | ${especialidad}`;
+      return {
+        index: idx + 1,
+        id: Number(rawId) || 104,
+        nombre,
+        especialidad
+      };
     });
 
-    const numOptions = list.map((_d, idx) => `${idx + 1}`);
+    const lines = doctors.map(d => `${d.index}. ${d.nombre} | ${d.especialidad}`);
+    const numOptions = doctors.map(d => `${d.index}`);
     const respondeText = numOptions.length > 1 
       ? `Responde ${numOptions.join(', ')} o 0 (ninguno).`
-      : 'Responde 1 o 0 (ninguno).';
+      : 'Responde 1, 2, 3 o 0 (ninguno).';
 
     return {
       text: `Doctores encontrados: ${lines.join(' ')} ${respondeText}`,
-      options: [...numOptions, '0 (ninguno)']
+      options: [...numOptions, '0 (ninguno)'],
+      doctors
     };
   }
 
   // 3. Fallback idéntico al requerimiento
   return {
     text: `Doctores encontrados: 1. ${fallbackDoctor} | Ortopedia y Traumatología Responde 1, 2, 3 o 0 (ninguno).`,
-    options: ['1', '2', '3', '0 (ninguno)']
+    options: ['1', '2', '3', '0 (ninguno)'],
+    doctors: [defaultDoctor]
+  };
+}
+
+/**
+ * Formatea los horarios disponibles retornados por el backend
+ */
+export function formatHorariosResults(data: any, doctorName: string = 'EDGAR ABEL GORDILLO HERNÁNDEZ'): { text: string; options?: string[] } {
+  const candidate = data?.results ?? data?.result ?? data?.horarios ?? data?.data ?? (typeof data === 'string' ? data : null);
+
+  if (typeof candidate === 'string' && candidate.trim()) {
+    return { text: candidate.trim() };
+  }
+
+  if (typeof data?.mensaje === 'string' && data.mensaje.trim()) {
+    return { text: data.mensaje.trim() };
+  }
+
+  const list = Array.isArray(candidate) 
+    ? candidate 
+    : Array.isArray(data) 
+      ? data 
+      : null;
+
+  if (list && list.length > 0) {
+    const lines = list.map((slot: any, idx: number) => {
+      if (typeof slot === 'string') return `${idx + 1}. ${slot}`;
+      const fecha = slot.fecha || slot.dia || slot.date || `Horario ${idx + 1}`;
+      const hora = slot.hora || slot.horario || slot.time || '';
+      return `${idx + 1}. ${fecha}${hora ? ` a las ${hora}` : ''}`;
+    });
+
+    const options = list.map((slot: any, idx: number) => {
+      if (typeof slot === 'string') return slot;
+      const fecha = slot.fecha || slot.dia || '';
+      const hora = slot.hora || slot.horario || slot.time || `Horario ${idx + 1}`;
+      return `${fecha} ${hora}`.trim();
+    });
+
+    return {
+      text: `🗓️ Horarios disponibles para ${doctorName}:\n\n${lines.join('\n')}\n\nSelecciona el horario de tu cita:`,
+      options: [...options, 'Volver al menú']
+    };
+  }
+
+  // Fallback por defecto si no vienen slots
+  return {
+    text: `🗓️ Horarios disponibles para ${doctorName}:\n\n1. Mañana a las 10:00 AM\n2. Mañana a las 04:30 PM\n3. Pasado mañana a las 11:00 AM\n\n¿Qué horario prefieres?`,
+    options: ['Mañana 10:00 AM', 'Mañana 04:30 PM', 'Pasado mañana 11:00 AM', 'Volver al menú']
   };
 }
 

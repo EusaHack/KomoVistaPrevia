@@ -15,7 +15,16 @@ import {
 import type { ChatMessage, LeadContact, SenderRole } from '../types';
 import { WhatsAppIcon } from './WhatsAppIcon';
 import { quickReplies } from '../mockData';
-import { chatApiService, formatPatientResults, formatDoctorResults, extractPatientList, normalizeDate, type ExtractedPatient } from '../services/api';
+import { 
+  chatApiService, 
+  formatPatientResults, 
+  formatDoctorResults, 
+  formatHorariosResults,
+  extractPatientList, 
+  normalizeDate, 
+  type ExtractedPatient,
+  type ExtractedDoctor
+} from '../services/api';
 
 interface ChatFeedProps {
   contact: LeadContact;
@@ -50,6 +59,11 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
   // Estado para guardar la lista de pacientes y el paciente seleccionado
   const [patientRecords, setPatientRecords] = useState<ExtractedPatient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<ExtractedPatient | null>(null);
+
+  // Estado para guardar la lista de doctores encontrados, doctor seleccionado y su ID
+  const [foundDoctors, setFoundDoctors] = useState<ExtractedDoctor[]>([]);
+  const [selectedDoctorId, setSelectedDoctorId] = useState<number | null>(null);
+  const [selectedDoctor, setSelectedDoctor] = useState<ExtractedDoctor | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -319,6 +333,10 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
         doctorResult.ok ? doctorResult.data : null,
         userQuery.trim()
       );
+
+      // Guardar doctores encontrados con sus IDs (doctor 1 con id: 104)
+      setFoundDoctors(formatted.doctors);
+
       const doctorReply = formatted.text;
       const docOptions = formatted.options;
 
@@ -335,11 +353,13 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
     // 0.095 Si el usuario está respondiendo a la selección de doctor encontrado (1, 2, 3 o 0)
     const isWaitingForDoctorSelection = Boolean(
       lastBotMessage?.content?.includes('Doctores encontrados') &&
-      lastBotMessage?.content?.includes('Responde')
+      (lastBotMessage?.content?.includes('Responde') || lastBotMessage?.content?.includes('ninguno'))
     );
 
-    if (isWaitingForDoctorSelection && (['1', '2', '3', '0', '0 (ninguno)'].includes(lower) || lower.includes('ninguno') || ['1', '2', '3'].includes(userQuery.trim()))) {
+    if (isWaitingForDoctorSelection && (['1', '2', '3', '0', '0 (ninguno)'].includes(lower) || lower.includes('ninguno') || ['1', '2', '3'].includes(userQuery.trim()) || userQuery.trim().length === 1)) {
       const selected = userQuery.trim().replace(/\D/g, '') || (lower.includes('ninguno') ? '0' : '1');
+      botSender = 'SalesBot (Salesbot #19)';
+
       if (selected === '0') {
         reply = `Entendido. ¿Prefieres buscar otro doctor por nombre o que te asignemos el próximo doctor disponible?`;
         nextOptions = [
@@ -347,21 +367,75 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
           'Doctor disponible',
           'Volver al menú'
         ];
-      } else {
-        reply = `✅ Has seleccionado al doctor especialista.\n\n¿Para qué fecha u horario prefieres tu consulta?`;
-        nextOptions = [
-          '📅 Lo más pronto posible',
-          '🗓️ Esta semana',
-          '🗓️ Próxima semana',
-          'Volver al menú'
-        ];
+        onSendMessage({
+          text: reply,
+          role: 'bot',
+          senderName: botSender,
+          options: nextOptions
+        });
+        return;
       }
+
+      // El usuario escogió la opción de doctor: obtener doctor e id (default 104)
+      const selectedIdx = parseInt(selected, 10);
+      const chosenDoc = foundDoctors.find(d => d.index === selectedIdx) || foundDoctors[0] || {
+        index: 1,
+        id: 104,
+        nombre: 'EDGAR ABEL GORDILLO HERNÁNDEZ',
+        especialidad: 'Ortopedia y Traumatología'
+      };
+
+      const doctorId = chosenDoc.id || 104;
+
+      // Guardar el id del doctor y doctor seleccionado en el estado
+      setSelectedDoctorId(doctorId);
+      setSelectedDoctor(chosenDoc);
+
+      console.log('👨‍⚕️ [Doctor seleccionado]:', chosenDoc);
+      console.log('💾 [Guardando ID de doctor]:', doctorId);
+      console.log('📤 [Enviando body a API]:', { accion: 'horarios_doctor', doctor_id: doctorId });
+
+      // Actualizar información en el contacto del lead
+      onUpdateContact?.({
+        doctorId,
+        doctorName: chosenDoc.nombre
+      });
+
+      // Enviar body al mismo endpoint: { accion: "horarios_doctor", doctor_id: 104 }
+      const horariosResponse = await chatApiService.horariosDoctor(doctorId);
+      console.log('📅 [Respuesta horarios_doctor]:', horariosResponse);
+
+      const formattedHorarios = formatHorariosResults(
+        horariosResponse.ok ? horariosResponse.data : null,
+        chosenDoc.nombre
+      );
+
+      onSendMessage({
+        text: formattedHorarios.text,
+        role: 'bot',
+        senderName: botSender,
+        ...(formattedHorarios.options ? { options: formattedHorarios.options } : {})
+      });
+      return;
+    }
+
+    // 0.098 Si el bot mostró horarios disponibles y el usuario escoge uno
+    const isWaitingForScheduleSelection = Boolean(
+      lastBotMessage?.content?.includes('Horarios disponibles') ||
+      lastBotMessage?.content?.includes('Selecciona el horario')
+    );
+
+    if (isWaitingForScheduleSelection && !lower.includes('menú') && !lower.includes('volver')) {
+      const docLabel = selectedDoctor?.nombre || 'EDGAR ABEL GORDILLO HERNÁNDEZ';
+      const docIdStr = selectedDoctorId ? ` (ID: ${selectedDoctorId})` : '';
+      reply = `🎉 ¡Excelente elección! Hemos registrado tu solicitud de cita con el Dr. ${docLabel}${docIdStr}.\n\nHorario seleccionado: "${userQuery.trim()}".\n\n¿Deseas confirmar la cita?`;
+      nextOptions = ['Confirmar cita', 'Cambiar horario', 'Volver al menú'];
       botSender = 'SalesBot (Salesbot #19)';
       onSendMessage({
         text: reply,
         role: 'bot',
         senderName: botSender,
-        ...(nextOptions ? { options: nextOptions } : {})
+        options: nextOptions
       });
       return;
     }
@@ -517,6 +591,25 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
           <span>Emulador de Mensajes</span>
         </div>
 
+        {selectedDoctor && (
+          <div 
+            style={{
+              fontSize: '11px',
+              color: '#38bdf8',
+              background: 'rgba(56, 189, 248, 0.12)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+            title={`Doctor ID: ${selectedDoctorId}`}
+          >
+            <span>👨‍⚕️ {selectedDoctor.nombre} (ID: {selectedDoctorId})</span>
+          </div>
+        )}
+
         <div className="emulator-role-toggles">
           <button 
             className={`role-btn ${activeRole === 'user' ? 'active' : ''}`}
@@ -567,7 +660,14 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
 
           <button 
             className="reset-chat-btn" 
-            onClick={onResetMessages}
+            onClick={() => {
+              setPatientRecords([]);
+              setSelectedPatient(null);
+              setFoundDoctors([]);
+              setSelectedDoctorId(null);
+              setSelectedDoctor(null);
+              onResetMessages();
+            }}
             title="Restablecer conversación al estado de la imagen"
           >
             <RotateCcw size={12} style={{ display: 'inline', marginRight: 4 }} />
