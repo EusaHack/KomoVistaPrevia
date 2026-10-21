@@ -156,10 +156,82 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
 
     const lastBotMessage = [...messages].reverse().find(m => m.sender === 'bot');
 
-    // 0. Si el usuario está respondiendo a la selección de posibles registros (1, 2, 3 o 0)
+    // 0.0 Si el usuario está respondiendo a la selección de doctor encontrado (1, 2, 3 o 0)
+    const isWaitingForDoctorSelection = Boolean(
+      lastBotMessage?.content?.includes('Doctores encontrados')
+    );
+
+    if (isWaitingForDoctorSelection && (['1', '2', '3', '0', '0 (ninguno)'].includes(lower) || lower.includes('ninguno') || ['1', '2', '3'].includes(userQuery.trim()) || userQuery.trim().length === 1)) {
+      const selected = userQuery.trim().replace(/\D/g, '') || (lower.includes('ninguno') ? '0' : '1');
+      botSender = 'SalesBot (Salesbot #19)';
+
+      if (selected === '0') {
+        reply = `Entendido. ¿Prefieres buscar otro doctor por nombre o que te asignemos el próximo doctor disponible?`;
+        nextOptions = [
+          'Elegir doctor',
+          'Doctor disponible',
+          'Volver al menú'
+        ];
+        onSendMessage({
+          text: reply,
+          role: 'bot',
+          senderName: botSender,
+          options: nextOptions
+        });
+        return;
+      }
+
+      // El usuario escogió la opción de doctor: obtener doctor e id (default 104)
+      const selectedIdx = parseInt(selected, 10);
+      const chosenDoc = foundDoctors.find(d => d.index === selectedIdx) || foundDoctors[0] || {
+        index: 1,
+        id: 104,
+        nombre: 'EDGAR ABEL GORDILLO HERNÁNDEZ',
+        especialidad: 'Ortopedia y Traumatología'
+      };
+
+      const doctorId = chosenDoc.id || 104;
+
+      // Guardar el id del doctor y doctor seleccionado en el estado
+      setSelectedDoctorId(doctorId);
+      setSelectedDoctor(chosenDoc);
+
+      console.log('👨‍⚕️ [Doctor seleccionado]:', chosenDoc);
+      console.log('💾 [Guardando ID de doctor]:', doctorId);
+      console.log('📤 [Enviando body a API]:', { accion: 'horarios_doctor', doctor_id: doctorId });
+
+      // Actualizar información en el contacto del lead
+      onUpdateContact?.({
+        doctorId,
+        doctorName: chosenDoc.nombre
+      });
+
+      // Enviar body al mismo endpoint: { accion: "horarios_doctor", doctor_id: 104 }
+      const horariosResponse = await chatApiService.horariosDoctor(doctorId);
+      console.log('📅 [Respuesta horarios_doctor]:', horariosResponse);
+
+      const patientName = selectedPatient?.nombre || contact.personName || 'Edgar Salinas';
+
+      const formattedHorarios = formatHorariosResults(
+        horariosResponse.ok ? horariosResponse.data : null,
+        chosenDoc.nombre,
+        patientName,
+        chosenDoc
+      );
+
+      onSendMessage({
+        text: formattedHorarios.text,
+        role: 'bot',
+        senderName: botSender,
+        ...(formattedHorarios.options ? { options: formattedHorarios.options } : {})
+      });
+      return;
+    }
+
+    // 0. Si el usuario está respondiendo a la selección de posibles registros de paciente (1, 2, 3 o 0)
     const isWaitingForPatientSelection = Boolean(
-      lastBotMessage?.content?.includes('Posibles registros') ||
-      lastBotMessage?.content?.includes('Responde 1, 2, 3 o 0')
+      lastBotMessage?.content?.includes('Posibles registros') &&
+      !lastBotMessage?.content?.includes('Doctores encontrados')
     );
 
     if (isWaitingForPatientSelection && (['1', '2', '3', '0', '0 (ninguno)'].includes(lower) || lower.includes('ninguno') || ['1', '2', '3'].includes(userQuery.trim()) || userQuery.trim().length === 1)) {
@@ -350,78 +422,6 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
       return;
     }
 
-    // 0.095 Si el usuario está respondiendo a la selección de doctor encontrado (1, 2, 3 o 0)
-    const isWaitingForDoctorSelection = Boolean(
-      lastBotMessage?.content?.includes('Doctores encontrados') &&
-      (lastBotMessage?.content?.includes('Responde') || lastBotMessage?.content?.includes('ninguno'))
-    );
-
-    if (isWaitingForDoctorSelection && (['1', '2', '3', '0', '0 (ninguno)'].includes(lower) || lower.includes('ninguno') || ['1', '2', '3'].includes(userQuery.trim()) || userQuery.trim().length === 1)) {
-      const selected = userQuery.trim().replace(/\D/g, '') || (lower.includes('ninguno') ? '0' : '1');
-      botSender = 'SalesBot (Salesbot #19)';
-
-      if (selected === '0') {
-        reply = `Entendido. ¿Prefieres buscar otro doctor por nombre o que te asignemos el próximo doctor disponible?`;
-        nextOptions = [
-          'Elegir doctor',
-          'Doctor disponible',
-          'Volver al menú'
-        ];
-        onSendMessage({
-          text: reply,
-          role: 'bot',
-          senderName: botSender,
-          options: nextOptions
-        });
-        return;
-      }
-
-      // El usuario escogió la opción de doctor: obtener doctor e id (default 104)
-      const selectedIdx = parseInt(selected, 10);
-      const chosenDoc = foundDoctors.find(d => d.index === selectedIdx) || foundDoctors[0] || {
-        index: 1,
-        id: 104,
-        nombre: 'EDGAR ABEL GORDILLO HERNÁNDEZ',
-        especialidad: 'Ortopedia y Traumatología'
-      };
-
-      const doctorId = chosenDoc.id || 104;
-
-      // Guardar el id del doctor y doctor seleccionado en el estado
-      setSelectedDoctorId(doctorId);
-      setSelectedDoctor(chosenDoc);
-
-      console.log('👨‍⚕️ [Doctor seleccionado]:', chosenDoc);
-      console.log('💾 [Guardando ID de doctor]:', doctorId);
-      console.log('📤 [Enviando body a API]:', { accion: 'horarios_doctor', doctor_id: doctorId });
-
-      // Actualizar información en el contacto del lead
-      onUpdateContact?.({
-        doctorId,
-        doctorName: chosenDoc.nombre
-      });
-
-      // Enviar body al mismo endpoint: { accion: "horarios_doctor", doctor_id: 104 }
-      const horariosResponse = await chatApiService.horariosDoctor(doctorId);
-      console.log('📅 [Respuesta horarios_doctor]:', horariosResponse);
-
-      const patientName = selectedPatient?.nombre || contact.personName || 'Edgar Salinas';
-
-      const formattedHorarios = formatHorariosResults(
-        horariosResponse.ok ? horariosResponse.data : null,
-        chosenDoc.nombre,
-        patientName,
-        chosenDoc
-      );
-
-      onSendMessage({
-        text: formattedHorarios.text,
-        role: 'bot',
-        senderName: botSender,
-        ...(formattedHorarios.options ? { options: formattedHorarios.options } : {})
-      });
-      return;
-    }
 
     // 0.098 Si el bot mostró horarios disponibles y el usuario ingresa la fecha y hora DD/MM/AAAA HH
     const isWaitingForScheduleSelection = Boolean(
