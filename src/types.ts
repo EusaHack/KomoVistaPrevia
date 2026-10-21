@@ -30,6 +30,7 @@ export interface LeadContact {
   role: string;
   subscription: string;
   avatarUrl: string;
+  birthDate?: string;
   status: 'active' | 'resolved' | 'waiting';
   channel: 'whatsapp';
 }

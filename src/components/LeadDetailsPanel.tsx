@@ -230,6 +230,14 @@ export const LeadDetailsPanel: React.FC<LeadDetailsPanelProps> = ({
             <span className="field-value empty">{contact.email || '...'}</span>
           </div>
 
+          {/* Fecha de nacimiento */}
+          <div className="field-row">
+            <span className="field-label">F. nacimiento</span>
+            <span className="field-value" style={{ color: contact.birthDate ? '#38bdf8' : '#7892a9' }}>
+              {contact.birthDate || '...'}
+            </span>
+          </div>
+
           {/* Suscripción de */}
           <div className="field-row">
             <span className="field-label">Suscripción de</span>

@@ -115,3 +115,77 @@ export function formatPatientResults(data: any, fallbackName: string = 'Edgar Sa
   // 3. Formato exacto requerido con datos según la plantilla solicitada
   return `Posibles registros: 1. ${fallbackName} | ***4064 | [e***@gmail.com](mailto:e***@gmail.com?bcc=itamohealthecmx@mail.kommo.com) 2. ${fallbackName} | ***5555 | [t***@gmail.com](mailto:t***@gmail.com?bcc=itamohealthecmx@mail.kommo.com) 3. ${fallbackName} | ***4064 | [e***@healthec.mx](mailto:e***@healthec.mx?bcc=itamohealthecmx@mail.kommo.com) Responde 1, 2, 3 o 0 (ninguno).`;
 }
+
+export interface ExtractedPatient {
+  index: number;
+  nombre: string;
+  telefono: string;
+  email: string;
+  fechaNacimiento: string;
+}
+
+/**
+ * Obtiene la lista estructurada de pacientes y sus fechas de nacimiento
+ */
+export function extractPatientList(data: any, fallbackName: string = 'Edgar Salinas'): ExtractedPatient[] {
+  const defaultList: ExtractedPatient[] = [
+    {
+      index: 1,
+      nombre: fallbackName,
+      telefono: '***4064',
+      email: 'e***@gmail.com',
+      fechaNacimiento: '25/08/1995'
+    },
+    {
+      index: 2,
+      nombre: fallbackName,
+      telefono: '***5555',
+      email: 't***@gmail.com',
+      fechaNacimiento: '14/03/1992'
+    },
+    {
+      index: 3,
+      nombre: fallbackName,
+      telefono: '***4064',
+      email: 'e***@healthec.mx',
+      fechaNacimiento: '30/11/1988'
+    }
+  ];
+
+  const candidate = data?.records ?? data?.results ?? data?.pacientes ?? data?.data ?? (Array.isArray(data) ? data : null);
+  if (Array.isArray(candidate) && candidate.length > 0) {
+    return candidate.map((item: any, idx: number) => {
+      const def = defaultList[idx] || defaultList[0];
+      if (typeof item === 'string') {
+        return {
+          ...def,
+          index: idx + 1
+        };
+      }
+      return {
+        index: idx + 1,
+        nombre: item.nombre || item.name || def.nombre,
+        telefono: item.telefono || item.phone || item.tel || def.telefono,
+        email: (item.correo || item.email || item.mail || def.email).replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'),
+        fechaNacimiento: item.fecha_nacimiento || item.fechaNacimiento || item.birthdate || item.nacimiento || def.fechaNacimiento
+      };
+    });
+  }
+
+  return defaultList;
+}
+
+/**
+ * Normaliza fechas al formato DD/MM/AAAA para comparación flexible
+ */
+export function normalizeDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const cleaned = dateStr.trim().replace(/[-. ]/g, '/');
+  const match = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return cleaned;
+  const day = match[1].padStart(2, '0');
+  const month = match[2].padStart(2, '0');
+  const year = match[3];
+  return `${day}/${month}/${year}`;
+}
+

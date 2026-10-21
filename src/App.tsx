@@ -109,6 +109,7 @@ export function App() {
         onSendMessage={handleSendMessage}
         onResetMessages={handleResetMessages}
         onMarkStatus={handleMarkStatus}
+        onUpdateContact={handleUpdateContact}
       />
     </div>
   );

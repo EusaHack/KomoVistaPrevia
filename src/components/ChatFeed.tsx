@@ -15,7 +15,7 @@ import {
 import type { ChatMessage, LeadContact, SenderRole } from '../types';
 import { WhatsAppIcon } from './WhatsAppIcon';
 import { quickReplies } from '../mockData';
-import { chatApiService, formatPatientResults } from '../services/api';
+import { chatApiService, formatPatientResults, extractPatientList, normalizeDate, type ExtractedPatient } from '../services/api';
 
 interface ChatFeedProps {
   contact: LeadContact;
@@ -29,6 +29,7 @@ interface ChatFeedProps {
   }) => void;
   onResetMessages: () => void;
   onMarkStatus: (status: 'resolved' | 'waiting') => void;
+  onUpdateContact?: (updated: Partial<LeadContact>) => void;
 }
 
 export const ChatFeed: React.FC<ChatFeedProps> = ({
@@ -36,7 +37,8 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
   messages,
   onSendMessage,
   onResetMessages,
-  onMarkStatus
+  onMarkStatus,
+  onUpdateContact
 }) => {
   const [inputText, setInputText] = useState('');
   const [activeRole, setActiveRole] = useState<SenderRole>('user');
@@ -44,6 +46,10 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
   const [isBotTyping, setIsBotTyping] = useState<boolean>(false);
   const [quickTemplateOpen, setQuickTemplateOpen] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  // Estado para guardar la lista de pacientes y el paciente seleccionado
+  const [patientRecords, setPatientRecords] = useState<ExtractedPatient[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<ExtractedPatient | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -143,6 +149,34 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
     );
 
     if (isWaitingForPatientSelection && (['1', '2', '3', '0', '0 (ninguno)'].includes(lower) || lower.includes('ninguno') || ['1', '2', '3'].includes(userQuery.trim()) || userQuery.trim().length === 1)) {
+      const selectedIndex = parseInt(userQuery.trim().replace(/\D/g, '') || (lower.includes('ninguno') ? '0' : '1'), 10);
+      
+      let chosen: ExtractedPatient;
+      if (selectedIndex >= 1 && selectedIndex <= 3) {
+        chosen = patientRecords.find(p => p.index === selectedIndex) || {
+          index: selectedIndex,
+          nombre: contact.personName || 'Edgar Salinas',
+          telefono: selectedIndex === 2 ? '***5555' : '***4064',
+          email: selectedIndex === 2 ? 't***@gmail.com' : (selectedIndex === 3 ? 'e***@healthec.mx' : 'e***@gmail.com'),
+          fechaNacimiento: selectedIndex === 1 ? '25/08/1995' : (selectedIndex === 2 ? '14/03/1992' : '30/11/1988')
+        };
+      } else {
+        chosen = {
+          index: 0,
+          nombre: contact.personName || 'Edgar Salinas',
+          telefono: contact.phone || '***4064',
+          email: contact.email || 'e***@gmail.com',
+          fechaNacimiento: '25/08/1995'
+        };
+      }
+
+      // Guardar paciente seleccionado y su fecha de nacimiento en el estado y panel de datos
+      setSelectedPatient(chosen);
+      onUpdateContact?.({
+        birthDate: chosen.fechaNacimiento,
+        email: chosen.email.includes('@') ? chosen.email : contact.email
+      });
+
       reply = `Para continuar con la verificación de tu identidad, escribe tu fecha de nacimiento en formato DD/MM/AAAA.\nEjemplo: 25/08/1995`;
       botSender = 'SalesBot (Salesbot #19)';
       onSendMessage({
@@ -160,18 +194,81 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
     );
 
     if (isWaitingForBirthdate && lower !== 'regresar') {
-      reply = `¡Identidad verificada exitosamente! ✅\n\n¿Qué tipo de consulta deseas agendar?`;
-      nextOptions = [
-        'Consulta General',
-        'Consulta Especialidad',
-        '↩️ Regresar al menú'
-      ];
+      const expected = selectedPatient?.fechaNacimiento || '25/08/1995';
+      const inputNorm = normalizeDate(userQuery);
+      const expectedNorm = normalizeDate(expected);
+
+      // Verificamos si la fecha ingresada coincide con la registrada
+      const isCorrect = (inputNorm === expectedNorm) || 
+        (selectedPatient?.index === 1 && inputNorm === '25/08/1995') ||
+        (!selectedPatient && inputNorm === '25/08/1995');
+
+      botSender = 'SalesBot (Salesbot #19)';
+
+      if (isCorrect) {
+        // Correcto: actualizamos datos del contacto y enviamos la pregunta sobre el doctor
+        onUpdateContact?.({ birthDate: inputNorm });
+
+        reply = `Antes de elegir la especialidad, cuéntanos :\n¿Tienes algún doctor en particular en mente o prefieres que te asignemos cualquier doctor disponible?`;
+        nextOptions = [
+          'Doctor en particular',
+          'Cualquier doctor disponible',
+          '↩️ Regresar al menú'
+        ];
+
+        onSendMessage({
+          text: reply,
+          role: 'bot',
+          senderName: botSender,
+          options: nextOptions
+        });
+        return;
+      } else {
+        // Incorrecto: avisamos error y volvemos a solicitar la fecha de nacimiento
+        onSendMessage({
+          text: `⚠️ La fecha de nacimiento ingresada no coincide con la información registrada.\nVerifica los datos e inténtalo nuevamente.`,
+          role: 'bot',
+          senderName: botSender
+        });
+
+        setTimeout(() => {
+          onSendMessage({
+            text: `Para continuar con la verificación de tu identidad, escribe tu fecha de nacimiento en formato DD/MM/AAAA.\nEjemplo: 25/08/1995`,
+            role: 'bot',
+            senderName: botSender
+          });
+        }, 600);
+
+        return;
+      }
+    }
+
+    // 0.08 Si el bot preguntó sobre preferencia de doctor
+    const isWaitingForDoctorPref = Boolean(
+      lastBotMessage?.content?.includes('Antes de elegir la especialidad') ||
+      lastBotMessage?.content?.includes('doctor en particular')
+    );
+
+    if (isWaitingForDoctorPref && lower !== 'regresar') {
+      if (lower.includes('particular')) {
+        reply = `Perfecto 🩺\n\nPor favor escribe el nombre completo del doctor con quien deseas agendar tu cita:`;
+        nextOptions = ['↩️ Regresar al menú'];
+      } else {
+        reply = `Excelente, te asignaremos al próximo especialista disponible ⏱️\n\n¿Qué especialidad médica requieres?`;
+        nextOptions = [
+          'Medicina General',
+          'Pediatría',
+          'Ginecología',
+          'Traumatología',
+          '↩️ Regresar al menú'
+        ];
+      }
       botSender = 'SalesBot (Salesbot #19)';
       onSendMessage({
         text: reply,
         role: 'bot',
         senderName: botSender,
-        options: nextOptions
+        ...(nextOptions ? { options: nextOptions } : {})
       });
       return;
     }
@@ -184,6 +281,10 @@ export const ChatFeed: React.FC<ChatFeedProps> = ({
 
     if ((isWaitingForName && lower !== 'regresar') || (lower.includes('salinas') && !lower.includes('cita'))) {
       const result = await chatApiService.validarPaciente(userQuery.trim(), 3);
+
+      // Guardar lista estructurada de pacientes
+      const records = extractPatientList(result.ok ? result.data : null, userQuery.trim());
+      setPatientRecords(records);
 
       // Mostrar únicamente results formateado igual que el mensaje requerido
       reply = formatPatientResults(result.ok ? result.data : null, userQuery.trim());
